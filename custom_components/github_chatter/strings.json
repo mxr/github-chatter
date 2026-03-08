@@ -1,0 +1,61 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "GitHub Chatter",
+        "description": "Configure repository activity tracking",
+        "data": {
+          "repository": "Repository (owner/name)",
+          "access_token": "GitHub personal access token"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to GitHub",
+      "invalid_auth": "Authentication failed",
+      "repo_not_found": "Repository not found or token cannot access it",
+      "invalid_repository": "Repository must be in owner/name format",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "Repository is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "GitHub Chatter Options",
+        "data": {
+          "poll_interval_seconds": "Poll interval (seconds)",
+          "enable_pulse_score": "Enable pulse score sensor",
+          "pulse_weight_issues": "Pulse weight: issues",
+          "pulse_weight_comments": "Pulse weight: comments",
+          "pulse_weight_concentration": "Pulse weight: concentration (HHI)",
+          "15m": "Enable 15 minute window",
+          "1h": "Enable 1 hour window",
+          "24h": "Enable 24 hour window",
+          "7d": "Enable 7 day window"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "issue_creation_count": {
+        "name": "Issue creation ({window})"
+      },
+      "issue_comment_count": {
+        "name": "Issue comments ({window})"
+      },
+      "comment_hhi": {
+        "name": "Comment concentration HHI ({window})"
+      },
+      "top_commented_issue": {
+        "name": "Top commented issue ({window})"
+      },
+      "pulse_score": {
+        "name": "Pulse score"
+      }
+    }
+  }
+}

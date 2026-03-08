@@ -1,0 +1,11 @@
+{
+  "domain": "github_chatter",
+  "name": "GitHub Chatter",
+  "codeowners": ["@mxr"],
+  "config_flow": true,
+  "documentation": "https://github.com/mxr/github-chatter",
+  "issue_tracker": "https://github.com/mxr/github-chatter/issues",
+  "iot_class": "cloud_polling",
+  "integration_type": "service",
+  "version": "0.1.0"
+}
