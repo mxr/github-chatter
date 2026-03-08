@@ -1,9 +1,8 @@
 """Constants for GitHub Chatter."""
 
-from __future__ import annotations
-
 from datetime import timedelta
-from logging import Logger, getLogger
+from logging import getLogger
+from logging import Logger
 
 LOGGER: Logger = getLogger(__package__)
 

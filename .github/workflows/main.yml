@@ -1,0 +1,17 @@
+name: main
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  main:
+    uses: asottile/workflows/.github/workflows/tox.yml@v1.9.0
+    with:
+      env: '["py314"]'
+  main-win:
+    uses: asottile/workflows/.github/workflows/tox.yml@v1.9.0
+    with:
+      env: '["py314"]'
+      os: windows-latest

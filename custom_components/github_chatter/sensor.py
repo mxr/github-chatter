@@ -1,22 +1,31 @@
 """Sensor platform for GitHub Chatter."""
 
-from __future__ import annotations
-
-from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
+from typing import TYPE_CHECKING
 
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription, SensorStateClass
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorEntityDescription
+from homeassistant.components.sensor import SensorStateClass
 from homeassistant.const import EntityCategory
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
-from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
-from homeassistant.helpers.typing import StateType
+from homeassistant.helpers.device_registry import DeviceEntryType
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import ATTRIBUTION, CONF_REPOSITORY, DOMAIN, OPTION_ENABLE_PULSE
+from .const import ATTRIBUTION
+from .const import CONF_REPOSITORY
+from .const import DOMAIN
+from .const import OPTION_ENABLE_PULSE
 from .coordinator import GitHubChatterCoordinator
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from collections.abc import Mapping
+
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+    from homeassistant.helpers.typing import StateType
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -24,7 +33,9 @@ class GitHubChatterSensorDescription(SensorEntityDescription):
     """Describe GitHub Chatter sensor."""
 
     value_fn: Callable[[dict[str, Any], str | None], StateType]
-    attr_fn: Callable[[dict[str, Any], str | None], Mapping[str, Any] | None] = lambda _data, _window: None
+    attr_fn: Callable[[dict[str, Any], str | None], Mapping[str, Any] | None] = (
+        lambda _data, _window: None
+    )
 
 
 async def async_setup_entry(
@@ -99,7 +110,12 @@ class GitHubChatterSensor(CoordinatorEntity[GitHubChatterCoordinator], SensorEnt
     _attr_has_entity_name = True
     _attr_attribution = ATTRIBUTION
 
-    def __init__(self, coordinator: GitHubChatterCoordinator, description: GitHubChatterSensorDescription, window: str | None) -> None:
+    def __init__(
+        self,
+        coordinator: GitHubChatterCoordinator,
+        description: GitHubChatterSensorDescription,
+        window: str | None,
+    ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self.entity_description = description
@@ -128,7 +144,9 @@ class GitHubChatterSensor(CoordinatorEntity[GitHubChatterCoordinator], SensorEnt
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
         """Return state attributes."""
-        attributes = self.entity_description.attr_fn(self.coordinator.data, self._window)
+        attributes = self.entity_description.attr_fn(
+            self.coordinator.data, self._window
+        )
         if attributes is None:
             return None
         base_attrs = {"window": self._window}

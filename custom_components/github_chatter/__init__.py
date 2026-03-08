@@ -1,15 +1,15 @@
 """The GitHub Chatter integration."""
 
-from __future__ import annotations
-
 from typing import Any
+from typing import TYPE_CHECKING
 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
 from .coordinator import GitHubChatterCoordinator
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 

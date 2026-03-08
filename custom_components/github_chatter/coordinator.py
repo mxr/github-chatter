@@ -1,44 +1,46 @@
 """Coordinator for GitHub Chatter data updates."""
 
-from __future__ import annotations
-
 from collections import defaultdict
-from collections.abc import Iterable
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from datetime import UTC
+from typing import TYPE_CHECKING
 from typing import Any
 
 import aiohttp
 import async_timeout
-
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .const import (
-    API_BASE_URL,
-    COMMENT_NORMALIZATION_SCALE,
-    CONF_ACCESS_TOKEN,
-    CONF_REPOSITORY,
-    DEFAULT_ENABLE_PULSE,
-    DEFAULT_POLL_INTERVAL_SECONDS,
-    DEFAULT_PULSE_WEIGHT_COMMENTS,
-    DEFAULT_PULSE_WEIGHT_CONCENTRATION,
-    DEFAULT_PULSE_WEIGHT_ISSUES,
-    DEFAULT_WINDOWS,
-    GITHUB_TIMEOUT_SECONDS,
-    ISSUE_NORMALIZATION_SCALE,
-    LOGGER,
-    OPTION_ENABLE_PULSE,
-    OPTION_POLL_INTERVAL_SECONDS,
-    OPTION_PULSE_WEIGHT_COMMENTS,
-    OPTION_PULSE_WEIGHT_CONCENTRATION,
-    OPTION_PULSE_WEIGHT_ISSUES,
-    OPTION_WINDOWS,
-    WINDOW_ORDER,
-    WINDOW_PULSE_WEIGHTS,
-    WINDOW_TO_DELTA,
-)
+from .const import API_BASE_URL
+from .const import COMMENT_NORMALIZATION_SCALE
+from .const import CONF_ACCESS_TOKEN
+from .const import CONF_REPOSITORY
+from .const import DEFAULT_ENABLE_PULSE
+from .const import DEFAULT_POLL_INTERVAL_SECONDS
+from .const import DEFAULT_PULSE_WEIGHT_COMMENTS
+from .const import DEFAULT_PULSE_WEIGHT_CONCENTRATION
+from .const import DEFAULT_PULSE_WEIGHT_ISSUES
+from .const import DEFAULT_WINDOWS
+from .const import GITHUB_TIMEOUT_SECONDS
+from .const import ISSUE_NORMALIZATION_SCALE
+from .const import LOGGER
+from .const import OPTION_ENABLE_PULSE
+from .const import OPTION_POLL_INTERVAL_SECONDS
+from .const import OPTION_PULSE_WEIGHT_COMMENTS
+from .const import OPTION_PULSE_WEIGHT_CONCENTRATION
+from .const import OPTION_PULSE_WEIGHT_ISSUES
+from .const import OPTION_WINDOWS
+from .const import WINDOW_ORDER
+from .const import WINDOW_PULSE_WEIGHTS
+from .const import WINDOW_TO_DELTA
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
 
 
 class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -46,7 +48,7 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     config_entry: ConfigEntry
 
-    def __init__(self, hass, entry: ConfigEntry) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize coordinator."""
         self.entry = entry
         self._session = async_get_clientsession(hass)
@@ -54,7 +56,11 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._repository: str = entry.data[CONF_REPOSITORY]
         self._owner, self._repo = self._repository.split("/", 1)
 
-        poll_interval = int(entry.options.get(OPTION_POLL_INTERVAL_SECONDS, DEFAULT_POLL_INTERVAL_SECONDS))
+        poll_interval = int(
+            entry.options.get(
+                OPTION_POLL_INTERVAL_SECONDS, DEFAULT_POLL_INTERVAL_SECONDS
+            )
+        )
 
         super().__init__(
             hass,
@@ -74,25 +80,41 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         issues = await self._fetch_issues_since(oldest_cutoff)
         comments = await self._fetch_comments_since(oldest_cutoff)
 
-        issue_counts = self._count_by_window((issue["created_at"] for issue in issues), windows, now)
-        comment_counts = self._count_by_window((comment["created_at"] for comment in comments), windows, now)
+        issue_counts = self._count_by_window(
+            (issue["created_at"] for issue in issues), windows, now
+        )
+        comment_counts = self._count_by_window(
+            (comment["created_at"] for comment in comments), windows, now
+        )
 
-        comment_issue_counts_by_window = self._comment_issue_counts_by_window(comments, windows, now)
+        comment_issue_counts_by_window = self._comment_issue_counts_by_window(
+            comments, windows, now
+        )
         comment_hhi = {
-            window: self._compute_hhi(comment_issue_counts_by_window[window].values()) for window in windows
-        }
-
-        top_issue_numbers = {
-            window: self._top_issue_number(comment_issue_counts_by_window[window]) for window in windows
-        }
-
-        issue_details = await self._fetch_issue_details({n for n in top_issue_numbers.values() if n is not None})
-        top_issues = {
-            window: self._build_top_issue_payload(top_issue_numbers[window], comment_issue_counts_by_window[window], issue_details)
+            window: self._compute_hhi(comment_issue_counts_by_window[window].values())
             for window in windows
         }
 
-        pulse_score = self._compute_pulse_score(issue_counts, comment_counts, comment_hhi, windows)
+        top_issue_numbers = {
+            window: self._top_issue_number(comment_issue_counts_by_window[window])
+            for window in windows
+        }
+
+        issue_details = await self._fetch_issue_details(
+            {n for n in top_issue_numbers.values() if n is not None}
+        )
+        top_issues = {
+            window: self._build_top_issue_payload(
+                top_issue_numbers[window],
+                comment_issue_counts_by_window[window],
+                issue_details,
+            )
+            for window in windows
+        }
+
+        pulse_score = self._compute_pulse_score(
+            issue_counts, comment_counts, comment_hhi, windows
+        )
 
         return {
             "repository": self._repository,
@@ -140,10 +162,14 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         }
         return await self._fetch_paginated(url, params)
 
-    async def _fetch_issue_details(self, issue_numbers: set[int]) -> dict[int, dict[str, Any]]:
+    async def _fetch_issue_details(
+        self, issue_numbers: set[int]
+    ) -> dict[int, dict[str, Any]]:
         details: dict[int, dict[str, Any]] = {}
         for issue_number in sorted(issue_numbers):
-            url = f"{API_BASE_URL}/repos/{self._owner}/{self._repo}/issues/{issue_number}"
+            url = (
+                f"{API_BASE_URL}/repos/{self._owner}/{self._repo}/issues/{issue_number}"
+            )
             item = await self._fetch_json(url)
             details[issue_number] = {
                 "number": item["number"],
@@ -152,55 +178,81 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             }
         return details
 
-    async def _fetch_json(self, url: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def _fetch_json(
+        self, url: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         try:
-            async with async_timeout.timeout(GITHUB_TIMEOUT_SECONDS):
-                async with self._session.get(url, headers=self._headers(), params=params) as response:
-                    if response.status == 401:
-                        raise UpdateFailed("GitHub authentication failed (401).")
-                    if response.status == 403:
-                        raise UpdateFailed("GitHub API returned 403 (rate limit or access denied).")
-                    if response.status >= 400:
-                        text = await response.text()
-                        raise UpdateFailed(f"GitHub API error {response.status}: {text[:200]}")
-                    return await response.json()
+            async with (
+                async_timeout.timeout(GITHUB_TIMEOUT_SECONDS),
+                self._session.get(
+                    url, headers=self._headers(), params=params
+                ) as response,
+            ):
+                if response.status == 401:
+                    raise UpdateFailed("GitHub authentication failed (401).")
+                if response.status == 403:
+                    raise UpdateFailed(
+                        "GitHub API returned 403 (rate limit or access denied)."
+                    )
+                if response.status >= 400:
+                    text = await response.text()
+                    raise UpdateFailed(
+                        f"GitHub API error {response.status}: {text[:200]}"
+                    )
+                return await response.json()
         except (TimeoutError, aiohttp.ClientError) as err:
             raise UpdateFailed(f"Error communicating with GitHub API: {err}") from err
 
-    async def _fetch_paginated(self, url: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+    async def _fetch_paginated(
+        self, url: str, params: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []
         current_url = url
         current_params: dict[str, Any] | None = params
 
         while current_url:
             try:
-                async with async_timeout.timeout(GITHUB_TIMEOUT_SECONDS):
-                    async with self._session.get(current_url, headers=self._headers(), params=current_params) as response:
-                        if response.status == 401:
-                            raise UpdateFailed("GitHub authentication failed (401).")
-                        if response.status == 403:
-                            raise UpdateFailed("GitHub API returned 403 (rate limit or access denied).")
-                        if response.status >= 400:
-                            text = await response.text()
-                            raise UpdateFailed(f"GitHub API error {response.status}: {text[:200]}")
+                async with (
+                    async_timeout.timeout(GITHUB_TIMEOUT_SECONDS),
+                    self._session.get(
+                        current_url, headers=self._headers(), params=current_params
+                    ) as response,
+                ):
+                    if response.status == 401:
+                        raise UpdateFailed("GitHub authentication failed (401).")
+                    if response.status == 403:
+                        raise UpdateFailed(
+                            "GitHub API returned 403 (rate limit or access denied)."
+                        )
+                    if response.status >= 400:
+                        text = await response.text()
+                        raise UpdateFailed(
+                            f"GitHub API error {response.status}: {text[:200]}"
+                        )
 
-                        page_data = await response.json()
-                        if isinstance(page_data, list):
-                            items.extend(page_data)
-                        else:
-                            raise UpdateFailed("GitHub API returned unexpected payload for paginated endpoint.")
+                    page_data = await response.json()
+                    if isinstance(page_data, list):
+                        items.extend(page_data)
+                    else:
+                        raise UpdateFailed(
+                            "GitHub API returned unexpected payload for paginated endpoint."
+                        )
 
-                        next_link = response.links.get("next") if response.links else None
-                        current_url = next_link["url"] if next_link else ""
-                        current_params = None
+                    next_link = response.links.get("next") if response.links else None
+                    current_url = next_link["url"] if next_link else ""
+                    current_params = None
             except (TimeoutError, aiohttp.ClientError) as err:
-                raise UpdateFailed(f"Error communicating with GitHub API: {err}") from err
+                raise UpdateFailed(
+                    f"Error communicating with GitHub API: {err}"
+                ) from err
 
         return items
 
-    def _count_by_window(self, created_ats: Iterable[str], windows: list[str], now: datetime) -> dict[str, int]:
+    def _count_by_window(
+        self, created_ats: Iterable[str], windows: list[str], now: datetime
+    ) -> dict[str, int]:
         cutoffs = {window: now - WINDOW_TO_DELTA[window] for window in windows}
-        counts = {window: 0 for window in windows}
+        counts = dict.fromkeys(windows, 0)
 
         for created_at in created_ats:
             created = dt_util.parse_datetime(created_at)
@@ -213,9 +265,13 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         return counts
 
-    def _comment_issue_counts_by_window(self, comments: list[dict[str, Any]], windows: list[str], now: datetime) -> dict[str, dict[int, int]]:
+    def _comment_issue_counts_by_window(
+        self, comments: list[dict[str, Any]], windows: list[str], now: datetime
+    ) -> dict[str, dict[int, int]]:
         cutoffs = {window: now - WINDOW_TO_DELTA[window] for window in windows}
-        per_window_counts: dict[str, dict[int, int]] = {window: defaultdict(int) for window in windows}
+        per_window_counts: dict[str, dict[int, int]] = {
+            window: defaultdict(int) for window in windows
+        }
 
         for comment in comments:
             created = dt_util.parse_datetime(comment.get("created_at"))
@@ -237,7 +293,7 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _issue_number_from_url(issue_url: str) -> int | None:
         try:
             return int(issue_url.rstrip("/").split("/")[-1])
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return None
 
     @staticmethod
@@ -255,7 +311,11 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return sorted(issue_counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
 
     @staticmethod
-    def _build_top_issue_payload(issue_number: int | None, window_issue_counts: dict[int, int], issue_details: dict[int, dict[str, Any]]) -> dict[str, Any] | None:
+    def _build_top_issue_payload(
+        issue_number: int | None,
+        window_issue_counts: dict[int, int],
+        issue_details: dict[int, dict[str, Any]],
+    ) -> dict[str, Any] | None:
         if issue_number is None:
             return None
         details = issue_details.get(issue_number)
@@ -273,17 +333,39 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "comment_count": window_issue_counts[issue_number],
         }
 
-    def _compute_pulse_score(self, issue_counts: dict[str, int], comment_counts: dict[str, int], hhi: dict[str, float], windows: list[str]) -> float:
+    def _compute_pulse_score(
+        self,
+        issue_counts: dict[str, int],
+        comment_counts: dict[str, int],
+        hhi: dict[str, float],
+        windows: list[str],
+    ) -> float:
         if not self.entry.options.get(OPTION_ENABLE_PULSE, DEFAULT_ENABLE_PULSE):
             return 0.0
 
-        issue_signal = self._window_weighted_signal(issue_counts, ISSUE_NORMALIZATION_SCALE, windows)
-        comment_signal = self._window_weighted_signal(comment_counts, COMMENT_NORMALIZATION_SCALE, windows)
+        issue_signal = self._window_weighted_signal(
+            issue_counts, ISSUE_NORMALIZATION_SCALE, windows
+        )
+        comment_signal = self._window_weighted_signal(
+            comment_counts, COMMENT_NORMALIZATION_SCALE, windows
+        )
         concentration_signal = self._window_weighted_hhi(hhi, windows)
 
-        issue_weight = float(self.entry.options.get(OPTION_PULSE_WEIGHT_ISSUES, DEFAULT_PULSE_WEIGHT_ISSUES))
-        comment_weight = float(self.entry.options.get(OPTION_PULSE_WEIGHT_COMMENTS, DEFAULT_PULSE_WEIGHT_COMMENTS))
-        concentration_weight = float(self.entry.options.get(OPTION_PULSE_WEIGHT_CONCENTRATION, DEFAULT_PULSE_WEIGHT_CONCENTRATION))
+        issue_weight = float(
+            self.entry.options.get(
+                OPTION_PULSE_WEIGHT_ISSUES, DEFAULT_PULSE_WEIGHT_ISSUES
+            )
+        )
+        comment_weight = float(
+            self.entry.options.get(
+                OPTION_PULSE_WEIGHT_COMMENTS, DEFAULT_PULSE_WEIGHT_COMMENTS
+            )
+        )
+        concentration_weight = float(
+            self.entry.options.get(
+                OPTION_PULSE_WEIGHT_CONCENTRATION, DEFAULT_PULSE_WEIGHT_CONCENTRATION
+            )
+        )
 
         total_weight = issue_weight + comment_weight + concentration_weight
         if total_weight <= 0:
@@ -298,7 +380,9 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return round(max(0.0, min(score, 1.0)) * 100.0, 2)
 
     @staticmethod
-    def _window_weighted_signal(counts: dict[str, int], scales: dict[str, float], windows: list[str]) -> float:
+    def _window_weighted_signal(
+        counts: dict[str, int], scales: dict[str, float], windows: list[str]
+    ) -> float:
         weighted_sum = 0.0
         total_weight = 0.0
 
