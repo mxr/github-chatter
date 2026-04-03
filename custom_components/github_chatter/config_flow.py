@@ -1,11 +1,11 @@
 """Config flow for GitHub Chatter."""
 
+import asyncio
 import re
 from typing import TYPE_CHECKING
 from typing import Any
 
 import aiohttp
-import async_timeout
 import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow
 from homeassistant.config_entries import ConfigFlowResult
@@ -52,7 +52,7 @@ async def _validate_credentials(
     session = async_get_clientsession(hass)
     try:
         async with (
-            async_timeout.timeout(GITHUB_TIMEOUT_SECONDS),
+            asyncio.timeout(GITHUB_TIMEOUT_SECONDS),
             session.get(url, headers=headers) as response,
         ):
             if response.status == 401:

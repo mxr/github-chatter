@@ -1,5 +1,6 @@
 """Coordinator for GitHub Chatter data updates."""
 
+import asyncio
 from collections import defaultdict
 from datetime import datetime
 from datetime import timedelta
@@ -8,7 +9,6 @@ from typing import TYPE_CHECKING
 from typing import Any
 
 import aiohttp
-import async_timeout
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.update_coordinator import UpdateFailed
@@ -183,7 +183,7 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     ) -> dict[str, Any]:
         try:
             async with (
-                async_timeout.timeout(GITHUB_TIMEOUT_SECONDS),
+                asyncio.timeout(GITHUB_TIMEOUT_SECONDS),
                 self._session.get(
                     url, headers=self._headers(), params=params
                 ) as response,
@@ -213,7 +213,7 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         while current_url:
             try:
                 async with (
-                    async_timeout.timeout(GITHUB_TIMEOUT_SECONDS),
+                    asyncio.timeout(GITHUB_TIMEOUT_SECONDS),
                     self._session.get(
                         current_url, headers=self._headers(), params=current_params
                     ) as response,
