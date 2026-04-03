@@ -2,8 +2,16 @@ name: main
 
 on:
   pull_request:
+    paths: &project_files
+    - .github/workflows/**
+    - '**/*.py'
+    - '**/*.toml'
+    - '**/*requirements*.txt'
+    - '**/setup.cfg'
+    - tox.ini
   push:
     branches: [main]
+    paths: *project_files
 
 jobs:
   main:
