@@ -7,5 +7,5 @@
   "issue_tracker": "https://github.com/mxr/github-chatter/issues",
   "iot_class": "cloud_polling",
   "integration_type": "service",
-  "version": "0.1.1-beta.1"
+  "version": "0.1.0"
 }
