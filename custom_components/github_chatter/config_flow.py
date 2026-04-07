@@ -10,6 +10,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.config_entries import OptionsFlowWithReload
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import API_BASE_URL
@@ -122,9 +123,10 @@ class GitHubChatterConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[call-a
         )
 
     @staticmethod
-    def async_get_options_flow(config_entry: ConfigEntry) -> GitHubChatterOptionsFlow:
+    @callback
+    def async_get_options_flow(_config_entry: ConfigEntry) -> GitHubChatterOptionsFlow:
         """Get options flow handler."""
-        return GitHubChatterOptionsFlow(config_entry)
+        return GitHubChatterOptionsFlow()
 
 
 class GitHubChatterOptionsFlow(OptionsFlowWithReload):
