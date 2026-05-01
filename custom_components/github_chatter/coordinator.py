@@ -239,7 +239,7 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         )
 
                     next_link = response.links.get("next") if response.links else None
-                    current_url = next_link["url"] if next_link else ""
+                    current_url = str(next_link["url"]) if next_link else ""
                     current_params = None
             except (TimeoutError, aiohttp.ClientError) as err:
                 raise UpdateFailed(
@@ -274,9 +274,12 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         }
 
         for comment in comments:
-            created = dt_util.parse_datetime(comment.get("created_at"))
+            created_at = comment.get("created_at")
             issue_url = comment.get("issue_url")
-            if created is None or not issue_url:
+            if not isinstance(created_at, str) or not isinstance(issue_url, str):
+                continue
+            created = dt_util.parse_datetime(created_at)
+            if created is None:
                 continue
             issue_number = self._issue_number_from_url(issue_url)
             if issue_number is None:
