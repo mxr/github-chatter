@@ -68,7 +68,7 @@ async def _validate_credentials(
     return None
 
 
-class GitHubChatterConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
+class GitHubChatterConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for GitHub Chatter."""
 
     VERSION = 1
