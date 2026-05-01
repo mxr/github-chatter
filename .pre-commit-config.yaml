@@ -1,7 +1,5 @@
 default_language_version:
   python: python3.14
-ci:
-  skip: [mypy]  # venv is too big; runs with gihub action instead
 
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -34,3 +32,4 @@ repos:
   rev: v1.20.2
   hooks:
   - id: mypy
+    additional_dependencies: [homeassistant-stubs]
