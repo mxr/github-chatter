@@ -1,4 +1,0 @@
-covdefaults
-coverage
-homeassistant
-pytest

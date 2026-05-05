@@ -1,8 +1,8 @@
 """Sensor platform for GitHub Chatter."""
 
 from dataclasses import dataclass
-from typing import Any
 from typing import TYPE_CHECKING
+from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.components.sensor import SensorEntityDescription

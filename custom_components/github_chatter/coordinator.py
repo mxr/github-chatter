@@ -2,9 +2,9 @@
 
 import asyncio
 from collections import defaultdict
+from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
-from datetime import UTC
 from typing import TYPE_CHECKING
 from typing import Any
 
@@ -39,6 +39,7 @@ from .const import WINDOW_TO_DELTA
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
