@@ -1,7 +1,7 @@
 """The GitHub Chatter integration."""
 
-from typing import Any
 from typing import TYPE_CHECKING
+from typing import Any
 
 from homeassistant.const import Platform
 

@@ -1,8 +1,8 @@
 """Constants for GitHub Chatter."""
 
 from datetime import timedelta
-from logging import getLogger
 from logging import Logger
+from logging import getLogger
 
 LOGGER: Logger = getLogger(__package__)
 

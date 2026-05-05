@@ -31,7 +31,6 @@ jobs:
             - '**/*requirements*.txt'
             - '**/setup.cfg'
             - custom_components/*/manifest.json
-            - tox.ini
   zizmor:
     runs-on: ubuntu-latest
     permissions:
