@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
@@ -25,44 +24,6 @@ from custom_components.github_chatter.const import OPTION_PULSE_WEIGHT_COMMENTS
 from custom_components.github_chatter.const import OPTION_PULSE_WEIGHT_CONCENTRATION
 from custom_components.github_chatter.const import OPTION_PULSE_WEIGHT_ISSUES
 from custom_components.github_chatter.const import OPTION_WINDOWS
-
-
-@pytest.fixture
-def hass() -> MagicMock:
-    """Return a Home Assistant stand-in."""
-    return MagicMock()
-
-
-@pytest.fixture
-def user_input() -> dict[str, str]:
-    """Return valid config flow input."""
-    return {CONF_REPOSITORY: " OpenAI/ChatGPT ", CONF_ACCESS_TOKEN: " token "}
-
-
-@pytest.fixture
-def config_flow_instance(hass: MagicMock) -> Any:
-    """Return a config flow instance with Home Assistant methods patched."""
-    flow: Any = object.__new__(config_flow.GitHubChatterConfigFlow)
-    flow.hass = hass
-    flow.async_show_form = MagicMock(return_value={"type": "form"})
-    flow.async_create_entry = MagicMock(return_value={"type": "create_entry"})
-    flow.async_set_unique_id = AsyncMock()
-    flow._abort_if_unique_id_configured = MagicMock()
-    return flow
-
-
-@pytest.fixture
-def options_flow_instance() -> Any:
-    """Return an options flow instance with Home Assistant methods patched."""
-    flow: Any = object.__new__(config_flow.GitHubChatterOptionsFlow)
-    flow.async_show_form = MagicMock(return_value={"type": "form"})
-    flow.async_create_entry = MagicMock(return_value={"type": "create_entry"})
-    config_entry = MagicMock()
-    config_entry.options = {}
-    flow.hass = MagicMock()
-    flow.hass.config_entries.async_get_known_entry.return_value = config_entry
-    flow.handler = "entry-id"
-    return flow
 
 
 def _session_for_status(status: int) -> MagicMock:

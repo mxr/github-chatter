@@ -7,7 +7,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from custom_components.github_chatter.const import CONF_REPOSITORY
 from custom_components.github_chatter.const import OPTION_ENABLE_PULSE
 from custom_components.github_chatter.sensor import COMMENT_COUNT_DESCRIPTION
 from custom_components.github_chatter.sensor import COMMENT_HHI_DESCRIPTION
@@ -16,29 +15,6 @@ from custom_components.github_chatter.sensor import PULSE_DESCRIPTION
 from custom_components.github_chatter.sensor import TOP_ISSUE_DESCRIPTION
 from custom_components.github_chatter.sensor import GitHubChatterSensor
 from custom_components.github_chatter.sensor import async_setup_entry
-
-
-@pytest.fixture
-def coordinator() -> MagicMock:
-    """Return a coordinator stand-in."""
-    instance = MagicMock()
-    instance.entry.data = {CONF_REPOSITORY: "owner/repo"}
-    instance.data = {
-        "windows": ["15m", "1h"],
-        "issue_counts": {"15m": 3},
-        "comment_counts": {"15m": 5},
-        "comment_hhi": {"15m": 0.75},
-        "top_issues": {
-            "15m": {
-                "number": 4,
-                "title": "Top issue",
-                "url": "https://example.com/4",
-                "comment_count": 5,
-            }
-        },
-        "pulse_score": 42.5,
-    }
-    return instance
 
 
 @pytest.mark.asyncio
@@ -50,10 +26,10 @@ def coordinator() -> MagicMock:
     ],
 )
 async def test_async_setup_entry_adds_window_entities(
-    enable_pulse: bool, expected_count: int, coordinator: MagicMock
+    enable_pulse: bool, expected_count: int, sensor_coordinator: MagicMock
 ) -> None:
     entry = MagicMock()
-    entry.runtime_data = coordinator
+    entry.runtime_data = sensor_coordinator
     entry.options = {OPTION_ENABLE_PULSE: enable_pulse}
     async_add_entities = MagicMock()
 
@@ -74,9 +50,9 @@ async def test_async_setup_entry_adds_window_entities(
     ],
 )
 def test_sensor_native_value(
-    description: Any, window: str | None, expected: Any, coordinator: MagicMock
+    description: Any, window: str | None, expected: Any, sensor_coordinator: MagicMock
 ) -> None:
-    sensor = GitHubChatterSensor(coordinator, description, window)
+    sensor = GitHubChatterSensor(sensor_coordinator, description, window)
 
     assert sensor.native_value == expected
     assert (
@@ -85,14 +61,18 @@ def test_sensor_native_value(
     )
 
 
-def test_sensor_extra_state_attributes_returns_none(coordinator: MagicMock) -> None:
-    sensor = GitHubChatterSensor(coordinator, ISSUE_COUNT_DESCRIPTION, "15m")
+def test_sensor_extra_state_attributes_returns_none(
+    sensor_coordinator: MagicMock,
+) -> None:
+    sensor = GitHubChatterSensor(sensor_coordinator, ISSUE_COUNT_DESCRIPTION, "15m")
 
     assert sensor.extra_state_attributes is None
 
 
-def test_sensor_extra_state_attributes_includes_window(coordinator: MagicMock) -> None:
-    sensor = GitHubChatterSensor(coordinator, TOP_ISSUE_DESCRIPTION, "15m")
+def test_sensor_extra_state_attributes_includes_window(
+    sensor_coordinator: MagicMock,
+) -> None:
+    sensor = GitHubChatterSensor(sensor_coordinator, TOP_ISSUE_DESCRIPTION, "15m")
 
     assert sensor.extra_state_attributes == {
         "window": "15m",

@@ -14,21 +14,6 @@ from custom_components.github_chatter import async_setup_entry
 from custom_components.github_chatter import async_unload_entry
 
 
-@pytest.fixture
-def hass() -> MagicMock:
-    """Return a Home Assistant stand-in."""
-    instance = MagicMock()
-    instance.config_entries.async_forward_entry_setups = AsyncMock()
-    instance.config_entries.async_unload_platforms = AsyncMock(return_value=True)
-    return instance
-
-
-@pytest.fixture
-def entry() -> MagicMock:
-    """Return a config entry stand-in."""
-    return MagicMock()
-
-
 @pytest.mark.asyncio
 @patch("custom_components.github_chatter.GitHubChatterCoordinator", autospec=True)
 async def test_async_setup_entry_sets_runtime_data(

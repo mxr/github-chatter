@@ -35,6 +35,13 @@ extend-select = [
 [tool.ruff.lint.isort]
 force-single-line = true
 
+[tool.setuptools.packages.find]
+exclude = [
+  "testing*",
+  "tests*",
+]
+include = ["custom_components*"]
+
 [tool.tox]
 env_list = ["py314", "pre-commit"]
 

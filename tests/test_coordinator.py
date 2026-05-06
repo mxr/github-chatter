@@ -17,8 +17,6 @@ import pytest
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from custom_components.github_chatter.const import API_BASE_URL
-from custom_components.github_chatter.const import CONF_ACCESS_TOKEN
-from custom_components.github_chatter.const import CONF_REPOSITORY
 from custom_components.github_chatter.const import DEFAULT_WINDOWS
 from custom_components.github_chatter.const import ISSUE_NORMALIZATION_SCALE
 from custom_components.github_chatter.const import OPTION_ENABLE_PULSE
@@ -28,34 +26,6 @@ from custom_components.github_chatter.const import OPTION_PULSE_WEIGHT_CONCENTRA
 from custom_components.github_chatter.const import OPTION_PULSE_WEIGHT_ISSUES
 from custom_components.github_chatter.const import OPTION_WINDOWS
 from custom_components.github_chatter.coordinator import GitHubChatterCoordinator
-
-
-@pytest.fixture
-def hass() -> MagicMock:
-    """Return a Home Assistant stand-in."""
-    return MagicMock()
-
-
-@pytest.fixture
-def entry() -> MagicMock:
-    """Return a config entry stand-in."""
-    config_entry = MagicMock()
-    config_entry.data = {CONF_REPOSITORY: "owner/repo", CONF_ACCESS_TOKEN: "token"}
-    config_entry.options = {}
-    return config_entry
-
-
-@pytest.fixture
-def coordinator(entry: MagicMock) -> Any:
-    """Return a coordinator with initialized local attributes."""
-    instance: Any = object.__new__(GitHubChatterCoordinator)
-    instance.entry = entry
-    instance._session = MagicMock()
-    instance._token = "token"
-    instance._repository = "owner/repo"
-    instance._owner = "owner"
-    instance._repo = "repo"
-    return instance
 
 
 def _response_context(
