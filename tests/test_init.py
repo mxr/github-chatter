@@ -2,46 +2,85 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
-from unittest.mock import MagicMock
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
+from homeassistant.config_entries import ConfigEntryState
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.github_chatter import PLATFORMS
-from custom_components.github_chatter import async_migrate_entry
-from custom_components.github_chatter import async_setup_entry
-from custom_components.github_chatter import async_unload_entry
+from custom_components.github_chatter.const import CONF_ACCESS_TOKEN
+from custom_components.github_chatter.const import CONF_REPOSITORY
+from custom_components.github_chatter.const import DOMAIN
+from custom_components.github_chatter.coordinator import GitHubChatterCoordinator
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
 
 @pytest.mark.asyncio
-@patch("custom_components.github_chatter.GitHubChatterCoordinator", autospec=True)
-async def test_async_setup_entry_sets_runtime_data(
-    coordinator_cls: MagicMock,
-    hass: MagicMock,
-    entry: MagicMock,
+async def test_config_entry_setup_loads_integration(
+    hass: HomeAssistant,
+    github_chatter_data: dict[str, object],
 ) -> None:
-    coordinator = MagicMock()
-    coordinator.async_config_entry_first_refresh = AsyncMock()
-    coordinator_cls.return_value = coordinator
-
-    assert await async_setup_entry(hass, entry) is True
-    coordinator_cls.assert_called_once_with(hass=hass, entry=entry)
-    coordinator.async_config_entry_first_refresh.assert_awaited_once_with()
-    assert entry.runtime_data is coordinator
-    hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
-        entry, PLATFORMS
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_REPOSITORY: "owner/repo", CONF_ACCESS_TOKEN: "token"},
+        options={},
     )
+    entry.add_to_hass(hass)
+
+    with patch.object(
+        GitHubChatterCoordinator, "_async_update_data", return_value=github_chatter_data
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id) is True
+        await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert hass.states.get("sensor.github_chatter_owner_repo_pulse_score") is not None
 
 
 @pytest.mark.asyncio
-async def test_async_unload_entry(hass: MagicMock, entry: MagicMock) -> None:
-    assert await async_unload_entry(hass, entry) is True
-    hass.config_entries.async_unload_platforms.assert_awaited_once_with(
-        entry, PLATFORMS
+async def test_config_entry_unload_unloads_integration(
+    hass: HomeAssistant,
+    github_chatter_data: dict[str, object],
+) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_REPOSITORY: "owner/repo", CONF_ACCESS_TOKEN: "token"},
+        options={},
     )
+    entry.add_to_hass(hass)
+
+    with patch.object(
+        GitHubChatterCoordinator, "_async_update_data", return_value=github_chatter_data
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id) is True
+        await hass.async_block_till_done()
+
+    assert await hass.config_entries.async_unload(entry.entry_id) is True
+    await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.NOT_LOADED
 
 
 @pytest.mark.asyncio
-async def test_async_migrate_entry(hass: MagicMock, entry: MagicMock) -> None:
-    assert await async_migrate_entry(hass, entry) is True
+async def test_old_config_entry_migrates_during_setup(
+    hass: HomeAssistant,
+    github_chatter_data: dict[str, object],
+) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_REPOSITORY: "owner/repo", CONF_ACCESS_TOKEN: "token"},
+        options={},
+        version=0,
+    )
+    entry.add_to_hass(hass)
+
+    with patch.object(
+        GitHubChatterCoordinator, "_async_update_data", return_value=github_chatter_data
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id) is True
+        await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED

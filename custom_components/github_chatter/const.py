@@ -1,5 +1,7 @@
 """Constants for GitHub Chatter."""
 
+from __future__ import annotations
+
 from datetime import timedelta
 from logging import Logger
 from logging import getLogger

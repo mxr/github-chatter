@@ -17,6 +17,9 @@ module = "testing.*"
 disallow_untyped_defs = false
 module = "tests.*"
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
 [tool.ruff]
 target-version = "py314"
 
@@ -34,6 +37,7 @@ extend-select = [
 # not using reorder-python-imports due to https://github.com/asottile/reorder-python-imports/issues/366
 [tool.ruff.lint.isort]
 force-single-line = true
+required-imports = ["from __future__ import annotations"]
 
 [tool.setuptools.packages.find]
 exclude = [
@@ -60,6 +64,8 @@ deps = [
   "covdefaults",
   "coverage",
   "homeassistant",
+  "pytest-homeassistant-custom-component",
   "pytest",
   "pytest-asyncio",
 ]
+skip_install = true

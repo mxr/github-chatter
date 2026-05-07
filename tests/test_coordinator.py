@@ -6,7 +6,9 @@ import re
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
+from typing import TYPE_CHECKING
 from typing import Any
+from typing import cast
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import call
@@ -15,9 +17,13 @@ from unittest.mock import patch
 import aiohttp
 import pytest
 from homeassistant.helpers.update_coordinator import UpdateFailed
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.github_chatter.const import API_BASE_URL
+from custom_components.github_chatter.const import CONF_ACCESS_TOKEN
+from custom_components.github_chatter.const import CONF_REPOSITORY
 from custom_components.github_chatter.const import DEFAULT_WINDOWS
+from custom_components.github_chatter.const import DOMAIN
 from custom_components.github_chatter.const import ISSUE_NORMALIZATION_SCALE
 from custom_components.github_chatter.const import OPTION_ENABLE_PULSE
 from custom_components.github_chatter.const import OPTION_POLL_INTERVAL_SECONDS
@@ -26,6 +32,9 @@ from custom_components.github_chatter.const import OPTION_PULSE_WEIGHT_CONCENTRA
 from custom_components.github_chatter.const import OPTION_PULSE_WEIGHT_ISSUES
 from custom_components.github_chatter.const import OPTION_WINDOWS
 from custom_components.github_chatter.coordinator import GitHubChatterCoordinator
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
 
 def _response_context(
@@ -46,6 +55,26 @@ def _response_context(
     return context, response
 
 
+def _mock_session(coordinator: GitHubChatterCoordinator) -> MagicMock:
+    return cast("MagicMock", coordinator._session)
+
+
+def _coordinator_with_options(options: dict[str, object]) -> GitHubChatterCoordinator:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_REPOSITORY: "owner/repo", CONF_ACCESS_TOKEN: "token"},
+        options=options,
+    )
+    instance = object.__new__(GitHubChatterCoordinator)
+    instance.entry = entry
+    instance._session = MagicMock()
+    instance._token = "token"
+    instance._repository = "owner/repo"
+    instance._owner = "owner"
+    instance._repo = "repo"
+    return instance
+
+
 @patch(
     "custom_components.github_chatter.coordinator.DataUpdateCoordinator.__init__",
     return_value=None,
@@ -58,10 +87,13 @@ def _response_context(
 def test_init_sets_repository_state(
     async_get_clientsession: MagicMock,
     data_update_coordinator_init: MagicMock,
-    hass: MagicMock,
-    entry: MagicMock,
+    hass: HomeAssistant,
 ) -> None:
-    entry.options = {OPTION_POLL_INTERVAL_SECONDS: "120"}
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_REPOSITORY: "owner/repo", CONF_ACCESS_TOKEN: "token"},
+        options={OPTION_POLL_INTERVAL_SECONDS: "120"},
+    )
     session = MagicMock()
     async_get_clientsession.return_value = session
 
@@ -75,23 +107,19 @@ def test_init_sets_repository_state(
     data_update_coordinator_init.assert_called_once()
 
 
-def test_active_windows_returns_ordered_configured_windows(
-    coordinator: Any, entry: MagicMock
-) -> None:
-    entry.options = {OPTION_WINDOWS: ["7d", "15m", "invalid"]}
+def test_active_windows_returns_ordered_configured_windows() -> None:
+    coordinator = _coordinator_with_options({OPTION_WINDOWS: ["7d", "15m", "invalid"]})
 
     assert coordinator._active_windows == ["15m", "7d"]
 
 
-def test_active_windows_falls_back_to_defaults(
-    coordinator: Any, entry: MagicMock
-) -> None:
-    entry.options = {OPTION_WINDOWS: ["invalid"]}
+def test_active_windows_falls_back_to_defaults() -> None:
+    coordinator = _coordinator_with_options({OPTION_WINDOWS: ["invalid"]})
 
     assert coordinator._active_windows == DEFAULT_WINDOWS
 
 
-def test_headers_include_token(coordinator: Any) -> None:
+def test_headers_include_token(coordinator: GitHubChatterCoordinator) -> None:
     assert coordinator._headers() == {
         "Accept": "application/vnd.github+json",
         "Authorization": "Bearer token",
@@ -102,7 +130,7 @@ def test_headers_include_token(coordinator: Any) -> None:
 @pytest.mark.asyncio
 @patch.object(GitHubChatterCoordinator, "_fetch_paginated", autospec=True)
 async def test_fetch_issues_since_filters_pull_requests(
-    fetch_paginated: AsyncMock, coordinator: Any
+    fetch_paginated: AsyncMock, coordinator: GitHubChatterCoordinator
 ) -> None:
     fetch_paginated.return_value = [{"number": 1}, {"number": 2, "pull_request": {}}]
 
@@ -125,7 +153,7 @@ async def test_fetch_issues_since_filters_pull_requests(
 @pytest.mark.asyncio
 @patch.object(GitHubChatterCoordinator, "_fetch_paginated", autospec=True)
 async def test_fetch_comments_since_uses_comments_endpoint(
-    fetch_paginated: AsyncMock, coordinator: Any
+    fetch_paginated: AsyncMock, coordinator: GitHubChatterCoordinator
 ) -> None:
     fetch_paginated.return_value = [{"id": 1}]
 
@@ -146,7 +174,9 @@ async def test_fetch_comments_since_uses_comments_endpoint(
 
 @pytest.mark.asyncio
 @patch.object(GitHubChatterCoordinator, "_fetch_json", autospec=True)
-async def test_fetch_issue_details(fetch_json: AsyncMock, coordinator: Any) -> None:
+async def test_fetch_issue_details(
+    fetch_json: AsyncMock, coordinator: GitHubChatterCoordinator
+) -> None:
     fetch_json.side_effect = [
         {"number": 2, "title": "second", "html_url": "https://example.com/2"},
         {"number": 5, "title": "fifth", "html_url": "https://example.com/5"},
@@ -166,10 +196,10 @@ async def test_fetch_issue_details(fetch_json: AsyncMock, coordinator: Any) -> N
 
 @pytest.mark.asyncio
 async def test_fetch_json_returns_payload(
-    coordinator: Any,
+    coordinator: GitHubChatterCoordinator,
 ) -> None:
     context, _response = _response_context(payload={"ok": True})
-    coordinator._session.get.return_value = context
+    _mock_session(coordinator).get.return_value = context
 
     assert await coordinator._fetch_json("https://example.com", {"a": "b"}) == {
         "ok": True
@@ -190,10 +220,10 @@ async def test_fetch_json_returns_payload(
     ],
 )
 async def test_fetch_json_raises_update_failed(
-    status: int, message: str, coordinator: Any
+    status: int, message: str, coordinator: GitHubChatterCoordinator
 ) -> None:
     context, _response = _response_context(status=status, text="long error")
-    coordinator._session.get.return_value = context
+    _mock_session(coordinator).get.return_value = context
 
     with pytest.raises(UpdateFailed, match=re.escape(message)):
         await coordinator._fetch_json("https://example.com")
@@ -201,9 +231,9 @@ async def test_fetch_json_raises_update_failed(
 
 @pytest.mark.asyncio
 async def test_fetch_json_maps_client_error(
-    coordinator: Any,
+    coordinator: GitHubChatterCoordinator,
 ) -> None:
-    coordinator._session.get.side_effect = aiohttp.ClientError("boom")
+    _mock_session(coordinator).get.side_effect = aiohttp.ClientError("boom")
 
     with pytest.raises(UpdateFailed, match="Error communicating with GitHub API: boom"):
         await coordinator._fetch_json("https://example.com")
@@ -211,21 +241,20 @@ async def test_fetch_json_maps_client_error(
 
 @pytest.mark.asyncio
 async def test_fetch_paginated_follows_next_link(
-    coordinator: Any,
+    coordinator: GitHubChatterCoordinator,
 ) -> None:
     first_context, _first_response = _response_context(
         payload=[{"id": 1}], links={"next": {"url": "https://example.com/next"}}
     )
     second_context, _second_response = _response_context(payload=[{"id": 2}])
-    coordinator._session.get.side_effect = [first_context, second_context]
+    session = _mock_session(coordinator)
+    session.get.side_effect = [first_context, second_context]
 
     assert await coordinator._fetch_paginated(
         "https://example.com/start", {"per_page": 100}
     ) == [{"id": 1}, {"id": 2}]
-    assert coordinator._session.get.call_args_list[0].kwargs["params"] == {
-        "per_page": 100
-    }
-    assert coordinator._session.get.call_args_list[1].kwargs["params"] is None
+    assert session.get.call_args_list[0].kwargs["params"] == {"per_page": 100}
+    assert session.get.call_args_list[1].kwargs["params"] is None
 
 
 @pytest.mark.asyncio
@@ -242,10 +271,10 @@ async def test_fetch_paginated_follows_next_link(
     ],
 )
 async def test_fetch_paginated_raises_update_failed(
-    status: int, message: str, coordinator: Any
+    status: int, message: str, coordinator: GitHubChatterCoordinator
 ) -> None:
     context, _response = _response_context(status=status, payload=[], text="long error")
-    coordinator._session.get.return_value = context
+    _mock_session(coordinator).get.return_value = context
 
     with pytest.raises(UpdateFailed, match=re.escape(message)):
         await coordinator._fetch_paginated("https://example.com", {})
@@ -253,10 +282,10 @@ async def test_fetch_paginated_raises_update_failed(
 
 @pytest.mark.asyncio
 async def test_fetch_paginated_rejects_unexpected_payload(
-    coordinator: Any,
+    coordinator: GitHubChatterCoordinator,
 ) -> None:
     context, _response = _response_context(payload={"items": []})
-    coordinator._session.get.return_value = context
+    _mock_session(coordinator).get.return_value = context
 
     with pytest.raises(UpdateFailed, match="unexpected payload"):
         await coordinator._fetch_paginated("https://example.com", {})
@@ -264,15 +293,15 @@ async def test_fetch_paginated_rejects_unexpected_payload(
 
 @pytest.mark.asyncio
 async def test_fetch_paginated_maps_client_error(
-    coordinator: Any,
+    coordinator: GitHubChatterCoordinator,
 ) -> None:
-    coordinator._session.get.side_effect = aiohttp.ClientError("boom")
+    _mock_session(coordinator).get.side_effect = aiohttp.ClientError("boom")
 
     with pytest.raises(UpdateFailed, match="Error communicating with GitHub API: boom"):
         await coordinator._fetch_paginated("https://example.com", {})
 
 
-def test_count_by_window(coordinator: Any) -> None:
+def test_count_by_window(coordinator: GitHubChatterCoordinator) -> None:
     now = datetime(2026, 5, 6, 12, tzinfo=UTC)
 
     assert coordinator._count_by_window(
@@ -282,7 +311,7 @@ def test_count_by_window(coordinator: Any) -> None:
     ) == {"15m": 1, "1h": 2}
 
 
-def test_comment_issue_counts_by_window(coordinator: Any) -> None:
+def test_comment_issue_counts_by_window(coordinator: GitHubChatterCoordinator) -> None:
     now = datetime(2026, 5, 6, 12, tzinfo=UTC)
     comments: list[dict[str, Any]] = [
         {
@@ -397,12 +426,14 @@ def test_window_weighted_hhi() -> None:
     assert GitHubChatterCoordinator._window_weighted_hhi({"15m": 0.5}, ["15m"]) == 0.5
 
 
-def test_compute_pulse_score(coordinator: Any, entry: MagicMock) -> None:
-    entry.options = {
-        OPTION_PULSE_WEIGHT_ISSUES: 0.5,
-        OPTION_PULSE_WEIGHT_COMMENTS: 0.5,
-        OPTION_PULSE_WEIGHT_CONCENTRATION: 0.0,
-    }
+def test_compute_pulse_score() -> None:
+    coordinator = _coordinator_with_options(
+        {
+            OPTION_PULSE_WEIGHT_ISSUES: 0.5,
+            OPTION_PULSE_WEIGHT_COMMENTS: 0.5,
+            OPTION_PULSE_WEIGHT_CONCENTRATION: 0.0,
+        }
+    )
 
     assert (
         coordinator._compute_pulse_score({"15m": 3}, {"15m": 10}, {"15m": 0.0}, ["15m"])
@@ -410,10 +441,8 @@ def test_compute_pulse_score(coordinator: Any, entry: MagicMock) -> None:
     )
 
 
-def test_compute_pulse_score_returns_zero_when_disabled(
-    coordinator: Any, entry: MagicMock
-) -> None:
-    entry.options = {OPTION_ENABLE_PULSE: False}
+def test_compute_pulse_score_returns_zero_when_disabled() -> None:
+    coordinator = _coordinator_with_options({OPTION_ENABLE_PULSE: False})
 
     assert (
         coordinator._compute_pulse_score({"15m": 3}, {"15m": 10}, {"15m": 1.0}, ["15m"])
@@ -421,14 +450,14 @@ def test_compute_pulse_score_returns_zero_when_disabled(
     )
 
 
-def test_compute_pulse_score_returns_zero_when_weights_are_zero(
-    coordinator: Any, entry: MagicMock
-) -> None:
-    entry.options = {
-        OPTION_PULSE_WEIGHT_ISSUES: 0.0,
-        OPTION_PULSE_WEIGHT_COMMENTS: 0.0,
-        OPTION_PULSE_WEIGHT_CONCENTRATION: 0.0,
-    }
+def test_compute_pulse_score_returns_zero_when_weights_are_zero() -> None:
+    coordinator = _coordinator_with_options(
+        {
+            OPTION_PULSE_WEIGHT_ISSUES: 0.0,
+            OPTION_PULSE_WEIGHT_COMMENTS: 0.0,
+            OPTION_PULSE_WEIGHT_CONCENTRATION: 0.0,
+        }
+    )
 
     assert (
         coordinator._compute_pulse_score({"15m": 3}, {"15m": 10}, {"15m": 1.0}, ["15m"])
@@ -446,11 +475,9 @@ async def test_async_update_data(
     fetch_comments_since: AsyncMock,
     fetch_issue_details: AsyncMock,
     utcnow: MagicMock,
-    coordinator: Any,
-    entry: MagicMock,
 ) -> None:
     now = datetime(2026, 5, 6, 12, tzinfo=UTC)
-    entry.options = {OPTION_WINDOWS: ["15m"]}
+    coordinator = _coordinator_with_options({OPTION_WINDOWS: ["15m"]})
     utcnow.return_value = now
     fetch_issues_since.return_value = [{"created_at": "2026-05-06T11:50:00Z"}]
     fetch_comments_since.return_value = [

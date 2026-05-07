@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import aiohttp
 import pytest
+from homeassistant.data_entry_flow import FlowResultType
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.github_chatter import config_flow
 from custom_components.github_chatter.const import CONF_ACCESS_TOKEN
 from custom_components.github_chatter.const import CONF_REPOSITORY
 from custom_components.github_chatter.const import DEFAULT_ENABLE_PULSE
@@ -18,12 +20,17 @@ from custom_components.github_chatter.const import DEFAULT_PULSE_WEIGHT_COMMENTS
 from custom_components.github_chatter.const import DEFAULT_PULSE_WEIGHT_CONCENTRATION
 from custom_components.github_chatter.const import DEFAULT_PULSE_WEIGHT_ISSUES
 from custom_components.github_chatter.const import DEFAULT_WINDOWS
+from custom_components.github_chatter.const import DOMAIN
 from custom_components.github_chatter.const import OPTION_ENABLE_PULSE
 from custom_components.github_chatter.const import OPTION_POLL_INTERVAL_SECONDS
 from custom_components.github_chatter.const import OPTION_PULSE_WEIGHT_COMMENTS
 from custom_components.github_chatter.const import OPTION_PULSE_WEIGHT_CONCENTRATION
 from custom_components.github_chatter.const import OPTION_PULSE_WEIGHT_ISSUES
 from custom_components.github_chatter.const import OPTION_WINDOWS
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigFlowResult
+    from homeassistant.core import HomeAssistant
 
 
 def _session_for_status(status: int) -> MagicMock:
@@ -37,147 +44,117 @@ def _session_for_status(status: int) -> MagicMock:
     return session
 
 
+async def _start_user_flow(hass: HomeAssistant) -> ConfigFlowResult:
+    return await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+
+
+@pytest.mark.asyncio
+async def test_user_flow_shows_form_without_input(hass: HomeAssistant) -> None:
+    result = await _start_user_flow(hass)
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "user"
+    assert result["errors"] == {}
+
+
+@pytest.mark.asyncio
+async def test_user_flow_rejects_invalid_repository(hass: HomeAssistant) -> None:
+    result = await _start_user_flow(hass)
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_REPOSITORY: "owner", CONF_ACCESS_TOKEN: "token"}
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {CONF_REPOSITORY: "invalid_repository"}
+
+
+@pytest.mark.asyncio
+async def test_user_flow_creates_entry(
+    hass: HomeAssistant,
+    user_input: dict[str, str],
+) -> None:
+    result = await _start_user_flow(hass)
+
+    with patch(
+        "custom_components.github_chatter.config_flow.async_get_clientsession",
+        return_value=_session_for_status(200),
+        autospec=True,
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], user_input
+        )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["title"] == "OpenAI/ChatGPT"
+    assert result["data"] == {
+        CONF_REPOSITORY: "OpenAI/ChatGPT",
+        CONF_ACCESS_TOKEN: "token",
+    }
+    assert result["options"] == {
+        OPTION_POLL_INTERVAL_SECONDS: DEFAULT_POLL_INTERVAL_SECONDS,
+        OPTION_WINDOWS: DEFAULT_WINDOWS,
+        OPTION_ENABLE_PULSE: DEFAULT_ENABLE_PULSE,
+        OPTION_PULSE_WEIGHT_ISSUES: DEFAULT_PULSE_WEIGHT_ISSUES,
+        OPTION_PULSE_WEIGHT_COMMENTS: DEFAULT_PULSE_WEIGHT_COMMENTS,
+        OPTION_PULSE_WEIGHT_CONCENTRATION: DEFAULT_PULSE_WEIGHT_CONCENTRATION,
+    }
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("status", "expected"),
+    ("session", "expected_error"),
     [
-        pytest.param(200, None, id="success"),
-        pytest.param(401, "invalid_auth", id="invalid-auth"),
-        pytest.param(404, "repo_not_found", id="repo-not-found"),
-        pytest.param(500, "unknown", id="unknown-error"),
+        pytest.param(_session_for_status(401), "invalid_auth", id="invalid-auth"),
+        pytest.param(_session_for_status(404), "repo_not_found", id="repo-not-found"),
+        pytest.param(_session_for_status(500), "unknown", id="unknown-error"),
+        pytest.param(None, "cannot_connect", id="client-error"),
     ],
 )
-@patch(
-    "custom_components.github_chatter.config_flow.async_get_clientsession",
-    autospec=True,
-)
-async def test_validate_credentials_maps_statuses(
-    async_get_clientsession: MagicMock,
-    status: int,
-    expected: str | None,
-    hass: MagicMock,
-) -> None:
-    async_get_clientsession.return_value = _session_for_status(status)
-
-    assert (
-        await config_flow._validate_credentials(hass, "owner/repo", "token") == expected
-    )
-
-
-@pytest.mark.asyncio
-@patch(
-    "custom_components.github_chatter.config_flow.async_get_clientsession",
-    autospec=True,
-)
-async def test_validate_credentials_maps_client_error(
-    async_get_clientsession: MagicMock,
-    hass: MagicMock,
-) -> None:
-    session = MagicMock()
-    session.get.side_effect = aiohttp.ClientError("boom")
-    async_get_clientsession.return_value = session
-
-    assert (
-        await config_flow._validate_credentials(hass, "owner/repo", "token")
-        == "cannot_connect"
-    )
-
-
-@pytest.mark.asyncio
-async def test_async_step_user_shows_form_without_input(
-    config_flow_instance: Any,
-) -> None:
-    result = await config_flow_instance.async_step_user()
-
-    assert result == {"type": "form"}
-    config_flow_instance.async_show_form.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_async_step_user_rejects_invalid_repository(
-    config_flow_instance: Any,
-) -> None:
-    result = await config_flow_instance.async_step_user(
-        {CONF_REPOSITORY: "owner", CONF_ACCESS_TOKEN: "token"}
-    )
-
-    assert result == {"type": "form"}
-    config_flow_instance.async_show_form.assert_called_once()
-    assert config_flow_instance.async_show_form.call_args.kwargs["errors"] == {
-        CONF_REPOSITORY: "invalid_repository"
-    }
-
-
-@pytest.mark.asyncio
-@patch(
-    "custom_components.github_chatter.config_flow._validate_credentials", autospec=True
-)
-async def test_async_step_user_creates_entry(
-    validate_credentials: AsyncMock,
-    config_flow_instance: Any,
+async def test_user_flow_shows_validation_error(
+    hass: HomeAssistant,
     user_input: dict[str, str],
+    session: MagicMock | None,
+    expected_error: str,
 ) -> None:
-    validate_credentials.return_value = None
+    result = await _start_user_flow(hass)
 
-    result = await config_flow_instance.async_step_user(user_input)
+    patched_session = MagicMock()
+    if session is None:
+        patched_session.get.side_effect = aiohttp.ClientError("boom")
+    else:
+        patched_session = session
 
-    assert result == {"type": "create_entry"}
-    config_flow_instance.async_set_unique_id.assert_awaited_once_with("openai/chatgpt")
-    config_flow_instance._abort_if_unique_id_configured.assert_called_once_with()
-    config_flow_instance.async_create_entry.assert_called_once_with(
-        title="OpenAI/ChatGPT",
-        data={CONF_REPOSITORY: "OpenAI/ChatGPT", CONF_ACCESS_TOKEN: "token"},
-        options={
-            OPTION_POLL_INTERVAL_SECONDS: DEFAULT_POLL_INTERVAL_SECONDS,
-            OPTION_WINDOWS: DEFAULT_WINDOWS,
-            OPTION_ENABLE_PULSE: DEFAULT_ENABLE_PULSE,
-            OPTION_PULSE_WEIGHT_ISSUES: DEFAULT_PULSE_WEIGHT_ISSUES,
-            OPTION_PULSE_WEIGHT_COMMENTS: DEFAULT_PULSE_WEIGHT_COMMENTS,
-            OPTION_PULSE_WEIGHT_CONCENTRATION: DEFAULT_PULSE_WEIGHT_CONCENTRATION,
-        },
-    )
+    with patch(
+        "custom_components.github_chatter.config_flow.async_get_clientsession",
+        return_value=patched_session,
+        autospec=True,
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], user_input
+        )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": expected_error}
 
 
 @pytest.mark.asyncio
-@patch(
-    "custom_components.github_chatter.config_flow._validate_credentials", autospec=True
-)
-async def test_async_step_user_shows_validation_error(
-    validate_credentials: AsyncMock,
-    config_flow_instance: Any,
-    user_input: dict[str, str],
-) -> None:
-    validate_credentials.return_value = "invalid_auth"
+async def test_options_flow_shows_form_with_defaults(hass: HomeAssistant) -> None:
+    entry = MockConfigEntry(domain=DOMAIN, options={})
+    entry.add_to_hass(hass)
 
-    result = await config_flow_instance.async_step_user(user_input)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
 
-    assert result == {"type": "form"}
-    assert config_flow_instance.async_show_form.call_args.kwargs["errors"] == {
-        "base": "invalid_auth"
-    }
-
-
-def test_async_get_options_flow_returns_no_arg_options_flow() -> None:
-    flow = config_flow.GitHubChatterConfigFlow.async_get_options_flow(MagicMock())
-
-    assert isinstance(flow, config_flow.GitHubChatterOptionsFlow)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "init"
 
 
 @pytest.mark.asyncio
-async def test_async_step_init_shows_options_form_with_defaults(
-    options_flow_instance: Any,
-) -> None:
-    result = await options_flow_instance.async_step_init()
-
-    assert result == {"type": "form"}
-    options_flow_instance.async_show_form.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_async_step_init_creates_options_entry(
-    options_flow_instance: Any,
-) -> None:
-    user_input: dict[str, Any] = {
+async def test_options_flow_creates_options_entry(hass: HomeAssistant) -> None:
+    entry = MockConfigEntry(domain=DOMAIN, options={})
+    entry.add_to_hass(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    user_input: dict[str, object] = {
         OPTION_POLL_INTERVAL_SECONDS: 600,
         OPTION_ENABLE_PULSE: False,
         OPTION_PULSE_WEIGHT_ISSUES: 0.2,
@@ -189,27 +166,29 @@ async def test_async_step_init_creates_options_entry(
         "7d": False,
     }
 
-    result = await options_flow_instance.async_step_init(user_input)
-
-    assert result == {"type": "create_entry"}
-    options_flow_instance.async_create_entry.assert_called_once_with(
-        title="",
-        data={
-            OPTION_POLL_INTERVAL_SECONDS: 600,
-            OPTION_WINDOWS: ["15m", "24h"],
-            OPTION_ENABLE_PULSE: False,
-            OPTION_PULSE_WEIGHT_ISSUES: 0.2,
-            OPTION_PULSE_WEIGHT_COMMENTS: 0.3,
-            OPTION_PULSE_WEIGHT_CONCENTRATION: 0.5,
-        },
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input
     )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"] == {
+        OPTION_POLL_INTERVAL_SECONDS: 600,
+        OPTION_WINDOWS: ["15m", "24h"],
+        OPTION_ENABLE_PULSE: False,
+        OPTION_PULSE_WEIGHT_ISSUES: 0.2,
+        OPTION_PULSE_WEIGHT_COMMENTS: 0.3,
+        OPTION_PULSE_WEIGHT_CONCENTRATION: 0.5,
+    }
 
 
 @pytest.mark.asyncio
-async def test_async_step_init_uses_default_windows_when_none_selected(
-    options_flow_instance: Any,
+async def test_options_flow_uses_default_windows_when_none_selected(
+    hass: HomeAssistant,
 ) -> None:
-    user_input: dict[str, Any] = {
+    entry = MockConfigEntry(domain=DOMAIN, options={})
+    entry.add_to_hass(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    user_input: dict[str, object] = {
         OPTION_POLL_INTERVAL_SECONDS: 600,
         OPTION_ENABLE_PULSE: True,
         OPTION_PULSE_WEIGHT_ISSUES: 0.2,
@@ -221,11 +200,9 @@ async def test_async_step_init_uses_default_windows_when_none_selected(
         "7d": False,
     }
 
-    await options_flow_instance.async_step_init(user_input)
-
-    assert (
-        options_flow_instance.async_create_entry.call_args.kwargs["data"][
-            OPTION_WINDOWS
-        ]
-        == DEFAULT_WINDOWS
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input
     )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][OPTION_WINDOWS] == DEFAULT_WINDOWS
