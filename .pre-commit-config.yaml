@@ -37,3 +37,8 @@ repos:
     additional_dependencies:
     - homeassistant-stubs
     - pytest-homeassistant-custom-component
+- repo: https://github.com/zizmorcore/zizmor-pre-commit
+  rev: v1.24.1
+  hooks:
+  - id: zizmor
+    args: [--no-progress, --fix]
