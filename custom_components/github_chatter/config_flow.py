@@ -126,7 +126,7 @@ class GitHubChatterConfigFlow(ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(_config_entry: ConfigEntry) -> GitHubChatterOptionsFlow:
+    def async_get_options_flow(config_entry: ConfigEntry) -> GitHubChatterOptionsFlow:
         """Get options flow handler."""
         return GitHubChatterOptionsFlow()
 
