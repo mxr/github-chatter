@@ -1,3 +1,13 @@
+[dependency-groups]
+test = [
+  "covdefaults",
+  "coverage",
+  "homeassistant",
+  "pytest",
+  "pytest-asyncio",
+  "pytest-homeassistant-custom-component",
+]
+
 [tool.coverage.run]
 plugins = ["covdefaults"]
 
@@ -60,12 +70,5 @@ commands = [
   ["coverage", "run", "-m", "pytest", "{posargs:tests}"],
   ["coverage", "report"],
 ]
-deps = [
-  "covdefaults",
-  "coverage",
-  "homeassistant",
-  "pytest-homeassistant-custom-component",
-  "pytest",
-  "pytest-asyncio",
-]
+dependency_groups = ["test"]
 skip_install = true
