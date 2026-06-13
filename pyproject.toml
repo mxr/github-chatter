@@ -72,3 +72,6 @@ commands = [
 ]
 dependency_groups = ["test"]
 skip_install = true
+
+[tool.ty.rules]
+all = "error"

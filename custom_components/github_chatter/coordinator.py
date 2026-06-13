@@ -9,6 +9,7 @@ from datetime import datetime
 from datetime import timedelta
 from typing import TYPE_CHECKING
 from typing import Any
+from typing import override
 
 import aiohttp
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -73,6 +74,7 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=timedelta(seconds=poll_interval),
         )
 
+    @override
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch and calculate activity metrics."""
         windows = self._active_windows

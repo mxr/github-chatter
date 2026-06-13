@@ -6,6 +6,7 @@ import asyncio
 import re
 from typing import TYPE_CHECKING
 from typing import Any
+from typing import override
 
 import aiohttp
 import voluptuous as vol
@@ -75,6 +76,7 @@ class GitHubChatterConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    @override
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -125,6 +127,7 @@ class GitHubChatterConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     @staticmethod
+    @override
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> GitHubChatterOptionsFlow:
         """Get options flow handler."""
