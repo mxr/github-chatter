@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing import Any
+from typing import override
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.components.sensor import SensorEntityDescription
@@ -138,11 +139,13 @@ class GitHubChatterSensor(CoordinatorEntity[GitHubChatterCoordinator], SensorEnt
             entry_type=DeviceEntryType.SERVICE,
         )
 
+    @override
     @property
     def native_value(self) -> StateType:
         """Return the sensor state."""
         return self.entity_description.value_fn(self.coordinator.data, self._window)
 
+    @override
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
         """Return state attributes."""
