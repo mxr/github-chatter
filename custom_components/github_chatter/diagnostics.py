@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import TYPE_CHECKING
 from typing import Any
 
@@ -28,5 +29,5 @@ async def async_get_config_entry_diagnostics(
         "last_exception": str(coordinator.last_exception)
         if coordinator.last_exception
         else None,
-        "data": coordinator.data,
+        "data": asdict(coordinator.data),
     }

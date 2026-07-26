@@ -19,10 +19,12 @@ from custom_components.github_chatter.coordinator import GitHubChatterCoordinato
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
+    from custom_components.github_chatter.models import GitHubChatterData
+
 
 async def _setup_entry(
     hass: HomeAssistant,
-    github_chatter_data: dict[str, object],
+    github_chatter_data: GitHubChatterData,
     *,
     options: dict[str, object] | None = None,
 ) -> MockConfigEntry:
@@ -51,7 +53,7 @@ def _entity_id(hass: HomeAssistant, unique_id: str) -> str:
 @pytest.mark.asyncio
 async def test_sensors_expose_coordinator_data_through_state_machine(
     hass: HomeAssistant,
-    github_chatter_data: dict[str, object],
+    github_chatter_data: GitHubChatterData,
 ) -> None:
     await _setup_entry(hass, github_chatter_data)
 
@@ -81,7 +83,7 @@ async def test_sensors_expose_coordinator_data_through_state_machine(
 @pytest.mark.asyncio
 async def test_sensor_setup_respects_pulse_option(
     hass: HomeAssistant,
-    github_chatter_data: dict[str, object],
+    github_chatter_data: GitHubChatterData,
 ) -> None:
     await _setup_entry(hass, github_chatter_data, options={OPTION_ENABLE_PULSE: False})
 
@@ -100,7 +102,7 @@ async def test_sensor_setup_respects_pulse_option(
 @pytest.mark.asyncio
 async def test_sensors_create_entity_and_device_registry_entries(
     hass: HomeAssistant,
-    github_chatter_data: dict[str, object],
+    github_chatter_data: GitHubChatterData,
 ) -> None:
     await _setup_entry(hass, github_chatter_data)
 

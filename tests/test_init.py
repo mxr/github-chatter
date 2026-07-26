@@ -17,11 +17,13 @@ from custom_components.github_chatter.coordinator import GitHubChatterCoordinato
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
+    from custom_components.github_chatter.models import GitHubChatterData
+
 
 @pytest.mark.asyncio
 async def test_config_entry_setup_loads_integration(
     hass: HomeAssistant,
-    github_chatter_data: dict[str, object],
+    github_chatter_data: GitHubChatterData,
 ) -> None:
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -43,7 +45,7 @@ async def test_config_entry_setup_loads_integration(
 @pytest.mark.asyncio
 async def test_config_entry_unload_unloads_integration(
     hass: HomeAssistant,
-    github_chatter_data: dict[str, object],
+    github_chatter_data: GitHubChatterData,
 ) -> None:
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -67,7 +69,7 @@ async def test_config_entry_unload_unloads_integration(
 @pytest.mark.asyncio
 async def test_old_config_entry_migrates_during_setup(
     hass: HomeAssistant,
-    github_chatter_data: dict[str, object],
+    github_chatter_data: GitHubChatterData,
 ) -> None:
     entry = MockConfigEntry(
         domain=DOMAIN,
