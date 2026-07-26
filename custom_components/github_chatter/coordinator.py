@@ -82,8 +82,10 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         oldest_delta = WINDOW_TO_DELTA[windows[-1]]
         oldest_cutoff = now - oldest_delta
 
-        issues = await self._fetch_issues_since(oldest_cutoff)
-        comments = await self._fetch_comments_since(oldest_cutoff)
+        issues, comments = await asyncio.gather(
+            self._fetch_issues_since(oldest_cutoff),
+            self._fetch_comments_since(oldest_cutoff),
+        )
 
         issue_counts = self._count_by_window(
             (issue["created_at"] for issue in issues), windows, now
@@ -170,18 +172,23 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _fetch_issue_details(
         self, issue_numbers: set[int]
     ) -> dict[int, dict[str, Any]]:
-        details: dict[int, dict[str, Any]] = {}
-        for issue_number in sorted(issue_numbers):
-            url = (
-                f"{API_BASE_URL}/repos/{self._owner}/{self._repo}/issues/{issue_number}"
+        sorted_numbers = sorted(issue_numbers)
+        items = await asyncio.gather(
+            *(
+                self._fetch_json(
+                    f"{API_BASE_URL}/repos/{self._owner}/{self._repo}/issues/{issue_number}"
+                )
+                for issue_number in sorted_numbers
             )
-            item = await self._fetch_json(url)
-            details[issue_number] = {
+        )
+        return {
+            issue_number: {
                 "number": item["number"],
                 "title": item["title"],
                 "url": item["html_url"],
             }
-        return details
+            for issue_number, item in zip(sorted_numbers, items, strict=True)
+        }
 
     async def _fetch_json(
         self, url: str, params: dict[str, Any] | None = None
