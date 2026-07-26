@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -13,6 +12,8 @@ from custom_components.github_chatter.const import CONF_ACCESS_TOKEN
 from custom_components.github_chatter.const import CONF_REPOSITORY
 from custom_components.github_chatter.const import MAX_CONCURRENT_REQUESTS
 from custom_components.github_chatter.coordinator import GitHubChatterCoordinator
+from custom_components.github_chatter.models import GitHubChatterData
+from custom_components.github_chatter.models import TopIssue
 
 
 @pytest.fixture
@@ -32,29 +33,31 @@ def user_input() -> dict[str, str]:
 
 
 @pytest.fixture
-def github_chatter_data() -> dict[str, Any]:
+def github_chatter_data() -> GitHubChatterData:
     """Return coordinator data."""
-    return {
-        "windows": ["15m", "1h"],
-        "issue_counts": {"15m": 3, "1h": 7},
-        "comment_counts": {"15m": 5, "1h": 11},
-        "comment_hhi": {"15m": 0.75, "1h": 0.35},
-        "top_issues": {
-            "15m": {
-                "number": 4,
-                "title": "Top issue",
-                "url": "https://example.com/4",
-                "comment_count": 5,
-            },
-            "1h": {
-                "number": 8,
-                "title": "Other issue",
-                "url": "https://example.com/8",
-                "comment_count": 3,
-            },
+    return GitHubChatterData(
+        repository="owner/repo",
+        windows=["15m", "1h"],
+        fetched_at="2026-05-06T00:00:00+00:00",
+        issue_counts={"15m": 3, "1h": 7},
+        comment_counts={"15m": 5, "1h": 11},
+        comment_hhi={"15m": 0.75, "1h": 0.35},
+        top_issues={
+            "15m": TopIssue(
+                number=4,
+                title="Top issue",
+                url="https://example.com/4",
+                comment_count=5,
+            ),
+            "1h": TopIssue(
+                number=8,
+                title="Other issue",
+                url="https://example.com/8",
+                comment_count=3,
+            ),
         },
-        "pulse_score": 42.5,
-    }
+        pulse_score=42.5,
+    )
 
 
 @pytest.fixture

@@ -34,6 +34,8 @@ from custom_components.github_chatter.const import OPTION_PULSE_WEIGHT_CONCENTRA
 from custom_components.github_chatter.const import OPTION_PULSE_WEIGHT_ISSUES
 from custom_components.github_chatter.const import OPTION_WINDOWS
 from custom_components.github_chatter.coordinator import GitHubChatterCoordinator
+from custom_components.github_chatter.models import GitHubChatterData
+from custom_components.github_chatter.models import TopIssue
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -380,18 +382,15 @@ def test_top_issue_number(issue_counts: dict[int, int], expected: int | None) ->
         pytest.param(
             4,
             {},
-            {"number": 4, "title": "Issue #4", "url": None, "comment_count": 3},
+            TopIssue(number=4, title="Issue #4", url=None, comment_count=3),
             id="fallback",
         ),
         pytest.param(
             4,
             {4: {"number": 4, "title": "Known", "url": "https://example.com/4"}},
-            {
-                "number": 4,
-                "title": "Known",
-                "url": "https://example.com/4",
-                "comment_count": 3,
-            },
+            TopIssue(
+                number=4, title="Known", url="https://example.com/4", comment_count=3
+            ),
             id="details",
         ),
     ],
@@ -399,7 +398,7 @@ def test_top_issue_number(issue_counts: dict[int, int], expected: int | None) ->
 def test_build_top_issue_payload(
     issue_number: int | None,
     issue_details: dict[int, dict[str, Any]],
-    expected: dict[str, Any] | None,
+    expected: TopIssue | None,
 ) -> None:
     assert (
         GitHubChatterCoordinator._build_top_issue_payload(
@@ -499,23 +498,23 @@ async def test_async_update_data(
 
     data = await coordinator._async_update_data()
 
-    assert data == {
-        "repository": "owner/repo",
-        "windows": ["15m"],
-        "fetched_at": "2026-05-06T12:00:00+00:00",
-        "issue_counts": {"15m": 1},
-        "comment_counts": {"15m": 2},
-        "comment_hhi": {"15m": 1.0},
-        "top_issues": {
-            "15m": {
-                "number": 2,
-                "title": "Busy issue",
-                "url": "https://example.com/2",
-                "comment_count": 2,
-            }
+    assert data == GitHubChatterData(
+        repository="owner/repo",
+        windows=["15m"],
+        fetched_at="2026-05-06T12:00:00+00:00",
+        issue_counts={"15m": 1},
+        comment_counts={"15m": 2},
+        comment_hhi={"15m": 1.0},
+        top_issues={
+            "15m": TopIssue(
+                number=2,
+                title="Busy issue",
+                url="https://example.com/2",
+                comment_count=2,
+            )
         },
-        "pulse_score": 34.0,
-    }
+        pulse_score=34.0,
+    )
     fetch_issues_since.assert_awaited_once_with(
         coordinator, now - timedelta(minutes=15)
     )

@@ -40,6 +40,8 @@ from .const import OPTION_WINDOWS
 from .const import WINDOW_ORDER
 from .const import WINDOW_PULSE_WEIGHTS
 from .const import WINDOW_TO_DELTA
+from .models import GitHubChatterData
+from .models import TopIssue
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -48,7 +50,7 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
 
-class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
+class GitHubChatterCoordinator(DataUpdateCoordinator[GitHubChatterData]):
     """Manage data fetching for GitHub Chatter."""
 
     config_entry: ConfigEntry
@@ -77,7 +79,7 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
 
     @override
-    async def _async_update_data(self) -> dict[str, Any]:
+    async def _async_update_data(self) -> GitHubChatterData:
         """Fetch and calculate activity metrics."""
         windows = self._active_windows
         now = dt_util.utcnow()
@@ -125,16 +127,16 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             issue_counts, comment_counts, comment_hhi, windows
         )
 
-        return {
-            "repository": self._repository,
-            "windows": windows,
-            "fetched_at": now.isoformat(),
-            "issue_counts": issue_counts,
-            "comment_counts": comment_counts,
-            "comment_hhi": comment_hhi,
-            "top_issues": top_issues,
-            "pulse_score": pulse_score,
-        }
+        return GitHubChatterData(
+            repository=self._repository,
+            windows=windows,
+            fetched_at=now.isoformat(),
+            issue_counts=issue_counts,
+            comment_counts=comment_counts,
+            comment_hhi=comment_hhi,
+            top_issues=top_issues,
+            pulse_score=pulse_score,
+        )
 
     @property
     def _active_windows(self) -> list[str]:
@@ -338,23 +340,23 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         issue_number: int | None,
         window_issue_counts: dict[int, int],
         issue_details: dict[int, dict[str, Any]],
-    ) -> dict[str, Any] | None:
+    ) -> TopIssue | None:
         if issue_number is None:
             return None
         details = issue_details.get(issue_number)
         if details is None:
-            return {
-                "number": issue_number,
-                "title": f"Issue #{issue_number}",
-                "url": None,
-                "comment_count": window_issue_counts[issue_number],
-            }
-        return {
-            "number": details["number"],
-            "title": details["title"],
-            "url": details["url"],
-            "comment_count": window_issue_counts[issue_number],
-        }
+            return TopIssue(
+                number=issue_number,
+                title=f"Issue #{issue_number}",
+                url=None,
+                comment_count=window_issue_counts[issue_number],
+            )
+        return TopIssue(
+            number=details["number"],
+            title=details["title"],
+            url=details["url"],
+            comment_count=window_issue_counts[issue_number],
+        )
 
     def _compute_pulse_score(
         self,

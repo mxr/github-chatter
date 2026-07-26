@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing import Any
@@ -30,13 +31,15 @@ if TYPE_CHECKING:
     from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
     from homeassistant.helpers.typing import StateType
 
+    from .models import GitHubChatterData
+
 
 @dataclass(frozen=True, kw_only=True)
 class GitHubChatterSensorDescription(SensorEntityDescription):
     """Describe GitHub Chatter sensor."""
 
-    value_fn: Callable[[dict[str, Any], str | None], StateType]
-    attr_fn: Callable[[dict[str, Any], str | None], Mapping[str, Any] | None] = (
+    value_fn: Callable[[GitHubChatterData, str | None], StateType]
+    attr_fn: Callable[[GitHubChatterData, str | None], Mapping[str, Any] | None] = (
         lambda _data, _window: None
     )
 
@@ -48,7 +51,7 @@ async def async_setup_entry(
 ) -> None:
     """Set up GitHub Chatter sensors from config entry."""
     coordinator = entry.runtime_data
-    windows: list[str] = coordinator.data.get("windows", [])
+    windows: list[str] = coordinator.data.windows
 
     entities: list[GitHubChatterSensor] = []
 
@@ -72,14 +75,14 @@ ISSUE_COUNT_DESCRIPTION = GitHubChatterSensorDescription(
     key="issue_creation_count",
     translation_key="issue_creation_count",
     state_class=SensorStateClass.MEASUREMENT,
-    value_fn=lambda data, window: data["issue_counts"].get(window, 0),
+    value_fn=lambda data, window: data.issue_counts.get(window or "", 0),
 )
 
 COMMENT_COUNT_DESCRIPTION = GitHubChatterSensorDescription(
     key="issue_comment_count",
     translation_key="issue_comment_count",
     state_class=SensorStateClass.MEASUREMENT,
-    value_fn=lambda data, window: data["comment_counts"].get(window, 0),
+    value_fn=lambda data, window: data.comment_counts.get(window or "", 0),
 )
 
 COMMENT_HHI_DESCRIPTION = GitHubChatterSensorDescription(
@@ -87,14 +90,18 @@ COMMENT_HHI_DESCRIPTION = GitHubChatterSensorDescription(
     translation_key="comment_hhi",
     state_class=SensorStateClass.MEASUREMENT,
     entity_category=EntityCategory.DIAGNOSTIC,
-    value_fn=lambda data, window: data["comment_hhi"].get(window, 0.0),
+    value_fn=lambda data, window: data.comment_hhi.get(window or "", 0.0),
 )
 
 TOP_ISSUE_DESCRIPTION = GitHubChatterSensorDescription(
     key="top_commented_issue",
     translation_key="top_commented_issue",
-    value_fn=lambda data, window: (data["top_issues"].get(window) or {}).get("title"),
-    attr_fn=lambda data, window: data["top_issues"].get(window),
+    value_fn=lambda data, window: (
+        top_issue.title if (top_issue := data.top_issues.get(window or "")) else None
+    ),
+    attr_fn=lambda data, window: (
+        asdict(top_issue) if (top_issue := data.top_issues.get(window or "")) else None
+    ),
 )
 
 PULSE_DESCRIPTION = GitHubChatterSensorDescription(
@@ -102,7 +109,7 @@ PULSE_DESCRIPTION = GitHubChatterSensorDescription(
     translation_key="pulse_score",
     native_unit_of_measurement="points",
     state_class=SensorStateClass.MEASUREMENT,
-    value_fn=lambda data, _window: data.get("pulse_score", 0.0),
+    value_fn=lambda data, _window: data.pulse_score,
 )
 
 
