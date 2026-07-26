@@ -194,21 +194,15 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[GitHubChatterData]):
             for issue_number, item in zip(sorted_numbers, items, strict=True)
         }
 
-    async def _fetch_json_limited(
-        self, url: str, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
+    async def _fetch_json_limited(self, url: str) -> dict[str, Any]:
         async with self._request_semaphore:
-            return await self._fetch_json(url, params)
+            return await self._fetch_json(url)
 
-    async def _fetch_json(
-        self, url: str, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
+    async def _fetch_json(self, url: str) -> dict[str, Any]:
         try:
             async with (
                 asyncio.timeout(GITHUB_TIMEOUT_SECONDS),
-                self._session.get(
-                    url, headers=self._headers(), params=params
-                ) as response,
+                self._session.get(url, headers=self._headers()) as response,
             ):
                 if response.status == 401:
                     raise UpdateFailed("GitHub authentication failed (401).")

@@ -193,8 +193,8 @@ async def test_fetch_issue_details(
     }
     fetch_json.assert_has_awaits(
         [
-            call(coordinator, f"{API_BASE_URL}/repos/owner/repo/issues/2", None),
-            call(coordinator, f"{API_BASE_URL}/repos/owner/repo/issues/5", None),
+            call(coordinator, f"{API_BASE_URL}/repos/owner/repo/issues/2"),
+            call(coordinator, f"{API_BASE_URL}/repos/owner/repo/issues/5"),
         ]
     )
 
@@ -206,9 +206,7 @@ async def test_fetch_json_returns_payload(
     context, _response = _response_context(payload={"ok": True})
     _mock_session(coordinator).get.return_value = context
 
-    assert await coordinator._fetch_json("https://example.com", {"a": "b"}) == {
-        "ok": True
-    }
+    assert await coordinator._fetch_json("https://example.com") == {"ok": True}
 
 
 @pytest.mark.asyncio
