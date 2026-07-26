@@ -30,6 +30,7 @@ from .const import DEFAULT_WINDOWS
 from .const import GITHUB_TIMEOUT_SECONDS
 from .const import ISSUE_NORMALIZATION_SCALE
 from .const import LOGGER
+from .const import MAX_CONCURRENT_REQUESTS
 from .const import OPTION_ENABLE_PULSE
 from .const import OPTION_POLL_INTERVAL_SECONDS
 from .const import OPTION_PULSE_WEIGHT_COMMENTS
@@ -56,6 +57,7 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Initialize coordinator."""
         self.entry = entry
         self._session = async_get_clientsession(hass)
+        self._request_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
         self._token: str = entry.data[CONF_ACCESS_TOKEN]
         self._repository: str = entry.data[CONF_REPOSITORY]
         self._owner, self._repo = self._repository.split("/", 1)
@@ -175,7 +177,7 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         sorted_numbers = sorted(issue_numbers)
         items = await asyncio.gather(
             *(
-                self._fetch_json(
+                self._fetch_json_limited(
                     f"{API_BASE_URL}/repos/{self._owner}/{self._repo}/issues/{issue_number}"
                 )
                 for issue_number in sorted_numbers
@@ -189,6 +191,12 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             }
             for issue_number, item in zip(sorted_numbers, items, strict=True)
         }
+
+    async def _fetch_json_limited(
+        self, url: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        async with self._request_semaphore:
+            return await self._fetch_json(url, params)
 
     async def _fetch_json(
         self, url: str, params: dict[str, Any] | None = None

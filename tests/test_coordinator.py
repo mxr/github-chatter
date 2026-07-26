@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
 from datetime import UTC
 from datetime import datetime
@@ -25,6 +26,7 @@ from custom_components.github_chatter.const import CONF_REPOSITORY
 from custom_components.github_chatter.const import DEFAULT_WINDOWS
 from custom_components.github_chatter.const import DOMAIN
 from custom_components.github_chatter.const import ISSUE_NORMALIZATION_SCALE
+from custom_components.github_chatter.const import MAX_CONCURRENT_REQUESTS
 from custom_components.github_chatter.const import OPTION_ENABLE_PULSE
 from custom_components.github_chatter.const import OPTION_POLL_INTERVAL_SECONDS
 from custom_components.github_chatter.const import OPTION_PULSE_WEIGHT_COMMENTS
@@ -68,6 +70,7 @@ def _coordinator_with_options(options: dict[str, object]) -> GitHubChatterCoordi
     instance = object.__new__(GitHubChatterCoordinator)
     instance.entry = entry
     instance._session = MagicMock()
+    instance._request_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
     instance._token = "token"
     instance._repository = "owner/repo"
     instance._owner = "owner"
@@ -188,8 +191,8 @@ async def test_fetch_issue_details(
     }
     fetch_json.assert_has_awaits(
         [
-            call(coordinator, f"{API_BASE_URL}/repos/owner/repo/issues/2"),
-            call(coordinator, f"{API_BASE_URL}/repos/owner/repo/issues/5"),
+            call(coordinator, f"{API_BASE_URL}/repos/owner/repo/issues/2", None),
+            call(coordinator, f"{API_BASE_URL}/repos/owner/repo/issues/5", None),
         ]
     )
 

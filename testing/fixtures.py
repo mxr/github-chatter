@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -10,6 +11,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.github_chatter.const import CONF_ACCESS_TOKEN
 from custom_components.github_chatter.const import CONF_REPOSITORY
+from custom_components.github_chatter.const import MAX_CONCURRENT_REQUESTS
 from custom_components.github_chatter.coordinator import GitHubChatterCoordinator
 
 
@@ -65,4 +67,5 @@ def coordinator(entry: MockConfigEntry) -> GitHubChatterCoordinator:
     instance._repository = "owner/repo"
     instance._owner = "owner"
     instance._repo = "repo"
+    instance._request_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
     return instance
