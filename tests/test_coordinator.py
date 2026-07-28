@@ -133,24 +133,24 @@ def test_headers_include_token(coordinator: GitHubChatterCoordinator) -> None:
 
 @pytest.mark.asyncio
 @patch.object(GitHubChatterCoordinator, "_fetch_paginated", autospec=True)
-async def test_fetch_issues_since_filters_pull_requests(
+async def test_fetch_issues_since_uses_search_api(
     fetch_paginated: AsyncMock, coordinator: GitHubChatterCoordinator
 ) -> None:
-    fetch_paginated.return_value = [{"number": 1}, {"number": 2, "pull_request": {}}]
+    fetch_paginated.return_value = [{"number": 1}]
 
     issues = await coordinator._fetch_issues_since(datetime(2026, 5, 6, tzinfo=UTC))
 
     assert issues == [{"number": 1}]
     fetch_paginated.assert_awaited_once_with(
         coordinator,
-        f"{API_BASE_URL}/repos/owner/repo/issues",
+        f"{API_BASE_URL}/search/issues",
         {
-            "state": "all",
+            "q": "repo:owner/repo is:issue created:>=2026-05-06T00:00:00Z",
             "sort": "created",
-            "direction": "desc",
-            "since": "2026-05-06T00:00:00Z",
+            "order": "desc",
             "per_page": 100,
         },
+        list_key="items",
     )
 
 

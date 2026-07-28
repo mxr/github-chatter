@@ -151,16 +151,15 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[GitHubChatterData]):
         }
 
     async def _fetch_issues_since(self, since_dt: datetime) -> list[dict[str, Any]]:
-        url = f"{API_BASE_URL}/repos/{self._owner}/{self._repo}/issues"
+        since_str = since_dt.isoformat().replace("+00:00", "Z")
+        url = f"{API_BASE_URL}/search/issues"
         params = {
-            "state": "all",
+            "q": f"repo:{self._owner}/{self._repo} is:issue created:>={since_str}",
             "sort": "created",
-            "direction": "desc",
-            "since": since_dt.isoformat().replace("+00:00", "Z"),
+            "order": "desc",
             "per_page": 100,
         }
-        items = await self._fetch_paginated(url, params)
-        return [item for item in items if "pull_request" not in item]
+        return await self._fetch_paginated(url, params, list_key="items")
 
     async def _fetch_comments_since(self, since_dt: datetime) -> list[dict[str, Any]]:
         url = f"{API_BASE_URL}/repos/{self._owner}/{self._repo}/issues/comments"
@@ -219,17 +218,19 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[GitHubChatterData]):
             raise UpdateFailed(f"Error communicating with GitHub API: {err}") from err
 
     async def _fetch_paginated(
-        self, url: str, params: dict[str, Any]
+        self, url: str, params: dict[str, Any], *, list_key: str | None = None
     ) -> list[dict[str, Any]]:
-        items, links = await self._fetch_page(url, params)
+        items, links = await self._fetch_page(url, params, list_key=list_key)
         last_link = links.get("last") if links else None
         if last_link is None:
-            # No rel="last" means cursor-based pagination (e.g. the issues
-            # endpoint): pages can't be fetched out of order, so follow
-            # rel="next" one page at a time.
+            # No rel="last" means either a single-page result, or
+            # cursor-based pagination: pages can't be fetched out of
+            # order, so follow rel="next" one page at a time.
             next_link = links.get("next") if links else None
             while next_link:
-                page_items, links = await self._fetch_page(str(next_link["url"]), None)
+                page_items, links = await self._fetch_page(
+                    str(next_link["url"]), None, list_key=list_key
+                )
                 items.extend(page_items)
                 next_link = links.get("next") if links else None
             return items
@@ -240,7 +241,9 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[GitHubChatterData]):
 
         remaining_pages = await asyncio.gather(
             *(
-                self._fetch_page_limited(url, {**params, "page": page})
+                self._fetch_page_limited(
+                    url, {**params, "page": page}, list_key=list_key
+                )
                 for page in range(2, last_page + 1)
             )
         )
@@ -249,13 +252,17 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[GitHubChatterData]):
         return items
 
     async def _fetch_page_limited(
-        self, url: str, params: dict[str, Any]
+        self, url: str, params: dict[str, Any], *, list_key: str | None = None
     ) -> tuple[list[dict[str, Any]], Mapping[str, Any]]:
         async with self._request_semaphore:
-            return await self._fetch_page(url, params)
+            return await self._fetch_page(url, params, list_key=list_key)
 
     async def _fetch_page(
-        self, url: str, params: dict[str, Any] | None
+        self,
+        url: str,
+        params: dict[str, Any] | None,
+        *,
+        list_key: str | None = None,
     ) -> tuple[list[dict[str, Any]], Mapping[str, Any]]:
         try:
             async with (
@@ -276,7 +283,8 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[GitHubChatterData]):
                         f"GitHub API error {response.status}: {text[:200]}"
                     )
 
-                page_data = await response.json()
+                raw_data = await response.json()
+                page_data = raw_data.get(list_key) if list_key else raw_data
                 if not isinstance(page_data, list):
                     raise UpdateFailed(
                         "GitHub API returned unexpected payload for paginated endpoint."
