@@ -327,7 +327,7 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[GitHubChatterData]):
     def _top_issue_number(issue_counts: dict[int, int]) -> int | None:
         if not issue_counts:
             return None
-        return sorted(issue_counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
+        return min(issue_counts.items(), key=lambda item: (-item[1], item[0]))[0]
 
     @staticmethod
     def _build_top_issue_payload(
