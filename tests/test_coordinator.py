@@ -114,13 +114,13 @@ def test_init_sets_repository_state(
 def test_active_windows_returns_ordered_configured_windows() -> None:
     coordinator = _coordinator_with_options({OPTION_WINDOWS: ["7d", "15m", "invalid"]})
 
-    assert coordinator._active_windows == ["15m", "7d"]
+    assert coordinator.active_windows == ["15m", "7d"]
 
 
 def test_active_windows_falls_back_to_defaults() -> None:
     coordinator = _coordinator_with_options({OPTION_WINDOWS: ["invalid"]})
 
-    assert coordinator._active_windows == DEFAULT_WINDOWS
+    assert coordinator.active_windows == DEFAULT_WINDOWS
 
 
 def test_headers_include_token(coordinator: GitHubChatterCoordinator) -> None:

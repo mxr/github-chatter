@@ -80,7 +80,7 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[GitHubChatterData]):
     @override
     async def _async_update_data(self) -> GitHubChatterData:
         """Fetch and calculate activity metrics."""
-        windows = self._active_windows
+        windows = self.active_windows
         now = dt_util.utcnow()
         oldest_delta = WINDOW_TO_DELTA[windows[-1]]
         oldest_cutoff = now - oldest_delta
@@ -138,7 +138,7 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[GitHubChatterData]):
         )
 
     @property
-    def _active_windows(self) -> list[str]:
+    def active_windows(self) -> list[str]:
         raw_windows = self.entry.options.get(OPTION_WINDOWS, DEFAULT_WINDOWS)
         windows = [window for window in WINDOW_ORDER if window in raw_windows]
         return windows or list(DEFAULT_WINDOWS)
