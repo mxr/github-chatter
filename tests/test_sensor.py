@@ -1,5 +1,6 @@
 """Tests for GitHub Chatter sensors."""
 
+import asyncio
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
@@ -116,3 +117,32 @@ async def test_sensors_create_entity_and_device_registry_entries(
     assert device_entry.name == "GitHub Chatter owner/repo"
     assert device_entry.manufacturer == "GitHub"
     assert device_entry.configuration_url == "https://github.com/owner/repo"
+
+
+@pytest.mark.asyncio
+async def test_sensor_restores_last_known_value_before_first_refresh_completes(
+    hass: HomeAssistant,
+    github_chatter_data: GitHubChatterData,
+) -> None:
+    entry = await _setup_entry(hass, github_chatter_data)
+    assert await hass.config_entries.async_unload(entry.entry_id) is True
+    await hass.async_block_till_done()
+
+    still_refreshing = asyncio.Event()
+
+    async def _hang(*_args: object, **_kwargs: object) -> GitHubChatterData:
+        await still_refreshing.wait()
+        return github_chatter_data
+
+    with patch.object(
+        GitHubChatterCoordinator, "_async_update_data", side_effect=_hang
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id) is True
+        await hass.async_block_till_done()
+
+        state = hass.states.get(_entity_id(hass, "owner_repo_pulse_score"))
+        assert state is not None
+        assert state.state == "42.5"
+
+        still_refreshing.set()
+        await hass.async_block_till_done(wait_background_tasks=True)

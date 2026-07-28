@@ -17,9 +17,14 @@ PLATFORMS: list[Platform] = [Platform.SENSOR]
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up GitHub Chatter from a config entry."""
     coordinator = GitHubChatterCoordinator(hass=hass, entry=entry)
-    await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    # Sensors restore their last known value via RestoreSensor, so the first
+    # refresh doesn't need to block entry setup; it runs in the background
+    # and entities pick it up once it completes.
+    entry.async_create_background_task(
+        hass, coordinator.async_refresh(), "github_chatter_first_refresh"
+    )
     return True
 
 

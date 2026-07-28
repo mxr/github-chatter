@@ -4,9 +4,10 @@ from dataclasses import asdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing import Any
+from typing import cast
 from typing import override
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import RestoreSensor
 from homeassistant.components.sensor import SensorEntityDescription
 from homeassistant.components.sensor import SensorStateClass
 from homeassistant.const import EntityCategory
@@ -49,7 +50,7 @@ async def async_setup_entry(
 ) -> None:
     """Set up GitHub Chatter sensors from config entry."""
     coordinator = entry.runtime_data
-    windows: list[str] = coordinator.data.windows
+    windows: list[str] = coordinator.active_windows
 
     entities: list[GitHubChatterSensor] = []
 
@@ -111,7 +112,7 @@ PULSE_DESCRIPTION = GitHubChatterSensorDescription(
 )
 
 
-class GitHubChatterSensor(CoordinatorEntity[GitHubChatterCoordinator], SensorEntity):
+class GitHubChatterSensor(CoordinatorEntity[GitHubChatterCoordinator], RestoreSensor):
     """GitHub Chatter sensor entity."""
 
     entity_description: GitHubChatterSensorDescription
@@ -145,15 +146,33 @@ class GitHubChatterSensor(CoordinatorEntity[GitHubChatterCoordinator], SensorEnt
         )
 
     @override
+    async def async_added_to_hass(self) -> None:
+        """Restore last known state until the coordinator has fresh data."""
+        await super().async_added_to_hass()
+        if (
+            self.coordinator.data is None
+            and (last_sensor_data := await self.async_get_last_sensor_data())
+            is not None
+        ):
+            self._attr_native_value = last_sensor_data.native_value
+
+    @override
     @property
     def native_value(self) -> StateType:
         """Return the sensor state."""
+        if self.coordinator.data is None:
+            # Only ever populated from our own str | int | float | None
+            # values via async_added_to_hass; SensorEntity's attribute is
+            # typed broader than we ever use.
+            return cast("StateType", self._attr_native_value)
         return self.entity_description.value_fn(self.coordinator.data, self._window)
 
     @override
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
         """Return state attributes."""
+        if self.coordinator.data is None:
+            return None
         attributes = self.entity_description.attr_fn(
             self.coordinator.data, self._window
         )
