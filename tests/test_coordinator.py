@@ -19,6 +19,7 @@ import aiohttp
 import pytest
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from yarl import URL
 
 from custom_components.github_chatter.const import API_BASE_URL
 from custom_components.github_chatter.const import CONF_ACCESS_TOKEN
@@ -258,6 +259,51 @@ async def test_fetch_paginated_follows_next_link(
     ) == [{"id": 1}, {"id": 2}]
     assert session.get.call_args_list[0].kwargs["params"] == {"per_page": 100}
     assert session.get.call_args_list[1].kwargs["params"] is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_paginated_fetches_remaining_pages_concurrently(
+    coordinator: GitHubChatterCoordinator,
+) -> None:
+    first_context, _first_response = _response_context(
+        payload=[{"id": 1}],
+        links={"last": {"url": URL("https://example.com/start?page=3")}},
+    )
+    second_context, _second_response = _response_context(payload=[{"id": 2}])
+    third_context, _third_response = _response_context(payload=[{"id": 3}])
+    session = _mock_session(coordinator)
+    session.get.side_effect = [first_context, second_context, third_context]
+
+    items = await coordinator._fetch_paginated(
+        "https://example.com/start", {"per_page": 100}
+    )
+
+    assert items == [{"id": 1}, {"id": 2}, {"id": 3}]
+    assert session.get.call_args_list[1].kwargs["params"] == {
+        "per_page": 100,
+        "page": 2,
+    }
+    assert session.get.call_args_list[2].kwargs["params"] == {
+        "per_page": 100,
+        "page": 3,
+    }
+
+
+@pytest.mark.asyncio
+async def test_fetch_paginated_single_page_with_last_link(
+    coordinator: GitHubChatterCoordinator,
+) -> None:
+    context, _response = _response_context(
+        payload=[{"id": 1}],
+        links={"last": {"url": URL("https://example.com/start?page=1")}},
+    )
+    session = _mock_session(coordinator)
+    session.get.return_value = context
+
+    assert await coordinator._fetch_paginated(
+        "https://example.com/start", {"per_page": 100}
+    ) == [{"id": 1}]
+    session.get.assert_called_once()
 
 
 @pytest.mark.asyncio
