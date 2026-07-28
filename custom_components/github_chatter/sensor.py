@@ -1,7 +1,5 @@
 """Sensor platform for GitHub Chatter."""
 
-from __future__ import annotations
-
 from dataclasses import asdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING

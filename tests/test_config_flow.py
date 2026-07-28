@@ -1,7 +1,5 @@
 """Tests for the GitHub Chatter config flow module."""
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock

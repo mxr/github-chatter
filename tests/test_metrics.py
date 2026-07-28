@@ -1,7 +1,5 @@
 """Tests for GitHub Chatter metrics helpers."""
 
-from __future__ import annotations
-
 import pytest
 
 from custom_components.github_chatter.coordinator import GitHubChatterCoordinator
