@@ -1,7 +1,5 @@
 """Config flow for GitHub Chatter."""
 
-from __future__ import annotations
-
 import asyncio
 import re
 from typing import TYPE_CHECKING

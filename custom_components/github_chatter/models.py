@@ -1,7 +1,5 @@
 """Typed data models for GitHub Chatter."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 

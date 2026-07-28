@@ -1,7 +1,5 @@
 """Coordinator for GitHub Chatter data updates."""
 
-from __future__ import annotations
-
 import asyncio
 from collections import defaultdict
 from datetime import UTC
