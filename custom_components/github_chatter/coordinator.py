@@ -45,6 +45,7 @@ from .models import TopIssue
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+    from collections.abc import Mapping
 
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
@@ -222,47 +223,69 @@ class GitHubChatterCoordinator(DataUpdateCoordinator[GitHubChatterData]):
     async def _fetch_paginated(
         self, url: str, params: dict[str, Any]
     ) -> list[dict[str, Any]]:
-        items: list[dict[str, Any]] = []
-        current_url = url
-        current_params: dict[str, Any] | None = params
+        items, links = await self._fetch_page(url, params)
+        last_link = links.get("last") if links else None
+        if last_link is None:
+            # No rel="last" means cursor-based pagination (e.g. the issues
+            # endpoint): pages can't be fetched out of order, so follow
+            # rel="next" one page at a time.
+            next_link = links.get("next") if links else None
+            while next_link:
+                page_items, links = await self._fetch_page(str(next_link["url"]), None)
+                items.extend(page_items)
+                next_link = links.get("next") if links else None
+            return items
 
-        while current_url:
-            try:
-                async with (
-                    asyncio.timeout(GITHUB_TIMEOUT_SECONDS),
-                    self._session.get(
-                        current_url, headers=self._headers(), params=current_params
-                    ) as response,
-                ):
-                    if response.status == 401:
-                        raise UpdateFailed("GitHub authentication failed (401).")
-                    if response.status == 403:
-                        raise UpdateFailed(
-                            "GitHub API returned 403 (rate limit or access denied)."
-                        )
-                    if response.status >= 400:
-                        text = await response.text()
-                        raise UpdateFailed(
-                            f"GitHub API error {response.status}: {text[:200]}"
-                        )
+        last_page = int(last_link["url"].query["page"])
+        if last_page <= 1:
+            return items
 
-                    page_data = await response.json()
-                    if isinstance(page_data, list):
-                        items.extend(page_data)
-                    else:
-                        raise UpdateFailed(
-                            "GitHub API returned unexpected payload for paginated endpoint."
-                        )
-
-                    next_link = response.links.get("next") if response.links else None
-                    current_url = str(next_link["url"]) if next_link else ""
-                    current_params = None
-            except (TimeoutError, aiohttp.ClientError) as err:
-                raise UpdateFailed(
-                    f"Error communicating with GitHub API: {err}"
-                ) from err
-
+        remaining_pages = await asyncio.gather(
+            *(
+                self._fetch_page_limited(url, {**params, "page": page})
+                for page in range(2, last_page + 1)
+            )
+        )
+        for page_items, _page_links in remaining_pages:
+            items.extend(page_items)
         return items
+
+    async def _fetch_page_limited(
+        self, url: str, params: dict[str, Any]
+    ) -> tuple[list[dict[str, Any]], Mapping[str, Any]]:
+        async with self._request_semaphore:
+            return await self._fetch_page(url, params)
+
+    async def _fetch_page(
+        self, url: str, params: dict[str, Any] | None
+    ) -> tuple[list[dict[str, Any]], Mapping[str, Any]]:
+        try:
+            async with (
+                asyncio.timeout(GITHUB_TIMEOUT_SECONDS),
+                self._session.get(
+                    url, headers=self._headers(), params=params
+                ) as response,
+            ):
+                if response.status == 401:
+                    raise UpdateFailed("GitHub authentication failed (401).")
+                if response.status == 403:
+                    raise UpdateFailed(
+                        "GitHub API returned 403 (rate limit or access denied)."
+                    )
+                if response.status >= 400:
+                    text = await response.text()
+                    raise UpdateFailed(
+                        f"GitHub API error {response.status}: {text[:200]}"
+                    )
+
+                page_data = await response.json()
+                if not isinstance(page_data, list):
+                    raise UpdateFailed(
+                        "GitHub API returned unexpected payload for paginated endpoint."
+                    )
+                return page_data, response.links
+        except (TimeoutError, aiohttp.ClientError) as err:
+            raise UpdateFailed(f"Error communicating with GitHub API: {err}") from err
 
     def _count_by_window(
         self, created_ats: Iterable[str], windows: list[str], now: datetime
