@@ -50,19 +50,17 @@ async def async_setup_entry(
 ) -> None:
     """Set up GitHub Chatter sensors from config entry."""
     coordinator = cast("GitHubChatterCoordinator", entry.runtime_data)
-    windows: list[str] = coordinator.active_windows
 
-    entities: list[GitHubChatterSensor] = []
-
-    for window in windows:
-        entities.extend(
-            [
-                GitHubChatterSensor(coordinator, ISSUE_COUNT_DESCRIPTION, window),
-                GitHubChatterSensor(coordinator, COMMENT_COUNT_DESCRIPTION, window),
-                GitHubChatterSensor(coordinator, COMMENT_HHI_DESCRIPTION, window),
-                GitHubChatterSensor(coordinator, TOP_ISSUE_DESCRIPTION, window),
-            ]
+    entities = [
+        GitHubChatterSensor(coordinator, d, window)
+        for window in coordinator.active_windows
+        for d in (
+            ISSUE_COUNT_DESCRIPTION,
+            COMMENT_COUNT_DESCRIPTION,
+            COMMENT_HHI_DESCRIPTION,
+            TOP_ISSUE_DESCRIPTION,
         )
+    ]
 
     if entry.options.get(OPTION_ENABLE_PULSE, True):
         entities.append(GitHubChatterSensor(coordinator, PULSE_DESCRIPTION, None))
