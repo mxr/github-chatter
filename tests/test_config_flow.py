@@ -50,9 +50,9 @@ async def _start_user_flow(hass: HomeAssistant) -> ConfigFlowResult:
 async def test_user_flow_shows_form_without_input(hass: HomeAssistant) -> None:
     result = await _start_user_flow(hass)
 
-    assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "user"
-    assert result["errors"] == {}
+    assert result["type"] is FlowResultType.FORM  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert result["step_id"] == "user"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert result["errors"] == {}  # pyright: ignore[reportTypedDictNotRequiredAccess]
 
 
 @pytest.mark.asyncio
