@@ -103,7 +103,7 @@ async def test_sensors_create_entity_and_device_registry_entries(
     hass: HomeAssistant,
     github_chatter_data: GitHubChatterData,
 ) -> None:
-    await _setup_entry(hass, github_chatter_data)
+    entry = await _setup_entry(hass, github_chatter_data)
 
     entity_entry = er.async_get(hass).async_get(
         _entity_id(hass, "owner_repo_issue_creation_count_15m")
@@ -112,7 +112,9 @@ async def test_sensors_create_entity_and_device_registry_entries(
     assert entity_entry.unique_id == "owner_repo_issue_creation_count_15m"
     assert entity_entry.platform == DOMAIN
 
-    device_entry = dr.async_get(hass).async_get_device({(DOMAIN, "owner/repo")})
+    device_entry = dr.async_get(hass).async_get_device_by_identifier(
+        (DOMAIN, "owner/repo"), entry.entry_id
+    )
     assert device_entry is not None
     assert device_entry.name == "GitHub Chatter owner/repo"
     assert device_entry.manufacturer == "GitHub"
