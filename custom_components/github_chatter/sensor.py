@@ -110,7 +110,9 @@ PULSE_DESCRIPTION = GitHubChatterSensorDescription(
 )
 
 
-class GitHubChatterSensor(CoordinatorEntity[GitHubChatterCoordinator], RestoreSensor):
+class GitHubChatterSensor(  # pyright: ignore[reportIncompatibleVariableOverride]
+    CoordinatorEntity[GitHubChatterCoordinator], RestoreSensor
+):
     """GitHub Chatter sensor entity."""
 
     entity_description: GitHubChatterSensorDescription
@@ -125,7 +127,7 @@ class GitHubChatterSensor(CoordinatorEntity[GitHubChatterCoordinator], RestoreSe
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
-        self.entity_description = description
+        self.entity_description = description  # pyright: ignore[reportIncompatibleVariableOverride]
         self._window = window
 
         repository = coordinator.entry.data[CONF_REPOSITORY]
@@ -154,9 +156,9 @@ class GitHubChatterSensor(CoordinatorEntity[GitHubChatterCoordinator], RestoreSe
         ):
             self._attr_native_value = last_sensor_data.native_value
 
-    @override
     @property
-    def native_value(self) -> StateType:
+    @override
+    def native_value(self) -> StateType:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the sensor state."""
         if self.coordinator.data is None:
             # Only ever populated from our own str | int | float | None
@@ -165,9 +167,9 @@ class GitHubChatterSensor(CoordinatorEntity[GitHubChatterCoordinator], RestoreSe
             return cast("StateType", self._attr_native_value)
         return self.entity_description.value_fn(self.coordinator.data, self._window)
 
-    @override
     @property
-    def extra_state_attributes(self) -> Mapping[str, Any] | None:
+    @override
+    def extra_state_attributes(self) -> Mapping[str, Any] | None:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return state attributes."""
         if self.coordinator.data is None:
             return None
